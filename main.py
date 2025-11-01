@@ -37,7 +37,9 @@ def process_gmsa_info(args):
     """Traite la commande gmsainfo."""
     print()
     try:
-        domain_name = args.domain or LdapUtils.get_current_domain()
+        domain_name = args.domain.lower() if args.domain else LdapUtils.get_current_domain()
+        if domain_name:
+            domain_name = domain_name.lower()
         
         if args.sid:
             gmsa = GmsaAccount.get_gmsa_account_by_sid(domain_name, args.sid)
@@ -60,7 +62,9 @@ def process_kds_info(args):
     """Traite la commande kdsinfo."""
     print()
     try:
-        forest_name = args.forest or LdapUtils.get_current_forest()
+        forest_name = args.forest.lower() if args.forest else LdapUtils.get_current_forest()
+        if forest_name:
+            forest_name = forest_name.lower()
         
         if args.guid:
             root_key = RootKey.get_root_key_by_guid(forest_name, args.guid)
@@ -95,11 +99,15 @@ def process_compute(args):
                 forest_name = LdapUtils.get_current_forest()
             else:
                 forest_name = args.forest
+            if forest_name:
+                forest_name = forest_name.lower()
                 
             if not args.domain:
                 domain_name = LdapUtils.get_current_domain()
             else:
                 domain_name = args.domain
+            if domain_name:
+                domain_name = domain_name.lower()
         
         pwd_id = None
         root_key = None
@@ -116,7 +124,7 @@ def process_compute(args):
         else:
             import base64
             root_key_bytes = base64.b64decode(args.kdskey)
-            root_key = RootKey(root_key_bytes)
+            root_key = RootKey(root_key_bytes=root_key_bytes)
         
         if root_key is None:
             print(f"Échec de localisation de la clé racine KDS avec ID {pwd_id.root_key_identifier}")
@@ -200,19 +208,19 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     
     subparsers = parser.add_subparsers(dest='command', help='Commandes disponibles')
     
-    # Commande gmsainfo
+    # Commande gmsainfo (insensible à la casse via normalisation)
     gmsa_parser = subparsers.add_parser('gmsainfo', 
                                        help='Interroger les informations gMSA')
     gmsa_parser.add_argument('-s', '--sid', type=str,
                             help='Le SID du gMSA à interroger')
     
-    # Commande kdsinfo
+    # Commande kdsinfo (insensible à la casse via normalisation)
     kds_parser = subparsers.add_parser('kdsinfo',
                                       help='Interroger les informations des clés racine KDS')
     kds_parser.add_argument('-g', '--guid', type=str,
                            help='Le GUID de l\'objet clé racine KDS')
     
-    # Commande compute
+    # Commande compute (insensible à la casse via normalisation)
     compute_parser = subparsers.add_parser('compute',
                                           help='Calculer les mots de passe gMSA')
     compute_parser.add_argument('-s', '--sid', type=str, required=True,
@@ -222,7 +230,19 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     compute_parser.add_argument('--pwdid', type=str,
                                help='Base64 de la valeur de l\'attribut msds-ManagedPasswordID')
     
-    args = parser.parse_args()
+    # Parse arguments avec normalisation de la casse pour les commandes
+    raw_args = sys.argv[1:]
+    
+    # Normaliser la commande (premier argument) en minuscules si c'est une commande valide
+    valid_commands = ['gmsainfo', 'kdsinfo', 'compute']
+    if raw_args and raw_args[0].lower() in [cmd.lower() for cmd in valid_commands]:
+        raw_args[0] = raw_args[0].lower()
+    
+    args = parser.parse_args(raw_args if raw_args else sys.argv[1:])
+    
+    # Normaliser la commande en minuscules (insensible à la casse)
+    if args.command:
+        args.command = args.command.lower()
     
     if not args.command:
         parser.print_help()
@@ -230,6 +250,12 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     
     try:
         ldap_conn = None
+        
+        # Normaliser domain et forest en minuscules (insensible à la casse)
+        if args.domain:
+            args.domain = args.domain.lower()
+        if args.forest:
+            args.forest = args.forest.lower()
         
         # Check if any authentication method is provided
         has_auth = (

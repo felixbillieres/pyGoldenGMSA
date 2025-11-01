@@ -40,7 +40,8 @@ class LdapConnection:
             ccache: Kerberos ccache file for Pass-the-Ticket
             use_kerberos: Force Kerberos usage
         """
-        self.domain = domain
+        # Normaliser le domaine en minuscules (insensible à la casse)
+        self.domain = domain.lower() if domain else domain
         self.username = username
         self.password = password
         self.use_ssl = use_ssl
@@ -363,7 +364,7 @@ class LdapUtils:
         Détermine le domaine actuel en utilisant les informations système ou la connexion active.
         
         Returns:
-            Nom du domaine actuel
+            Nom du domaine actuel (normalisé en minuscules)
         """
         try:
             conn_obj = LdapUtils._current_connection
@@ -372,9 +373,10 @@ class LdapUtils:
                 
             hostname = socket.getfqdn()
             if '.' in hostname:
-                return hostname.split('.', 1)[1]
+                domain = hostname.split('.', 1)[1]
+                return domain.lower() if domain else domain
             
-            return hostname
+            return hostname.lower() if hostname else hostname
             
         except Exception as ex:
             logger.warning(f"Impossible de déterminer le domaine actuel: {ex}")
