@@ -119,6 +119,10 @@ def process_compute(args):
             pwd_id_bytes = base64.b64decode(args.pwdid)
             pwd_id = MsdsManagedPasswordId(pwd_id_bytes)
         
+        if pwd_id is None:
+            print(f"Échec de localisation de l'identifiant de mot de passe géré pour le SID {args.sid}")
+            return
+        
         if not args.kdskey:
             root_key = RootKey.get_root_key_by_guid(forest_name, pwd_id.root_key_identifier)
         else:
