@@ -158,9 +158,22 @@ def process_compute(args):
             print(f"Échec de localisation de la clé racine KDS avec ID {pwd_id.root_key_identifier}")
             return
         
+        # Récupérer les informations du compte gMSA pour l'affichage
+        gmsa_account = None
+        try:
+            if domain_name:
+                gmsa_account = GmsaAccount.get_gmsa_account_by_sid(domain_name, args.sid)
+        except:
+            pass  # Ignorer si on ne peut pas récupérer les infos (mode hors ligne par exemple)
+        
         pwd_bytes = GmsaPassword.get_password(
             args.sid, root_key, pwd_id, domain_name, forest_name
         )
+        
+        # Afficher les informations du compte si disponibles
+        if gmsa_account:
+            print(f"Compte gMSA:\t\t{gmsa_account.sam_account_name}")
+            print(f"SID:\t\t\t{args.sid}")
         
         # Le password blob contient 256 bytes, les 32 premiers bytes sont le hash NTLM (16 LM + 16 NT)
         if len(pwd_bytes) >= 32:
