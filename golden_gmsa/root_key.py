@@ -245,11 +245,11 @@ class RootKey:
         # Calculer la taille totale
         total_size = (124 + 
                      len(self.ms_kds_kdf_algorithm_id.encode('utf-16le')) + 
-                     len(self.ms_kds_kdf_param) + 
-                     len(self.kds_secret_agreement_param) +
+                     (len(self.ms_kds_kdf_param) if self.ms_kds_kdf_param else 0) + 
+                     (len(self.kds_secret_agreement_param) if self.kds_secret_agreement_param else 0) +
                      len(self.kds_secret_agreement_algorithm_id.encode('utf-16le')) + 
                      len(self.kds_domain_id.encode('utf-16le')) + 
-                     len(self.kds_root_key_data))
+                     (len(self.kds_root_key_data) if self.kds_root_key_data else 0))
         
         root_key_bytes = bytearray(total_size)
         
@@ -266,8 +266,11 @@ class RootKey:
         struct.pack_into('<I', root_key_bytes, 32, len(ms_kds_kdf_algorithm_id_bytes))
         root_key_bytes[36:36+len(ms_kds_kdf_algorithm_id_bytes)] = ms_kds_kdf_algorithm_id_bytes
         struct.pack_into('<I', root_key_bytes, 36+len(ms_kds_kdf_algorithm_id_bytes), self.kdf_param_size)
-        root_key_bytes[40+len(ms_kds_kdf_algorithm_id_bytes):40+len(ms_kds_kdf_algorithm_id_bytes)+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
-        track_size += len(self.ms_kds_kdf_param) + len(ms_kds_kdf_algorithm_id_bytes) + 4
+        if self.ms_kds_kdf_param:
+            root_key_bytes[40+len(ms_kds_kdf_algorithm_id_bytes):40+len(ms_kds_kdf_algorithm_id_bytes)+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
+            track_size += len(self.ms_kds_kdf_param) + len(ms_kds_kdf_algorithm_id_bytes) + 4
+        else:
+            track_size += len(ms_kds_kdf_algorithm_id_bytes) + 4
         
         # Continuer avec les autres champs...
         # (Implémentation simplifiée pour l'exemple)

@@ -116,10 +116,10 @@ class GmsaPassword:
         # Générer la clé dérivée
         generate_derived_key = GmsaPassword._generate_derived_key(
             root_key.ms_kds_kdf_algorithm_id,
-            root_key.ms_kds_kdf_param,
+            root_key.ms_kds_kdf_param or b"",
             root_key.kdf_param_size,
-            root_key.kds_root_key_data,
-            root_key.kds_root_key_data_size,
+            root_key.kds_root_key_data or b"",
+            root_key.kds_root_key_data_size if root_key.kds_root_key_data else 0,
             kdf_context, len(kdf_context),
             1, generate_derived_key := bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT),
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
@@ -155,9 +155,9 @@ class GmsaPassword:
         # Générer la première clé dérivée
         derived_key = GmsaPassword._generate_derived_key(
             l0_key.ms_kds_kdf_algorithm_id,
-            l0_key.ms_kds_kdf_param,
+            l0_key.ms_kds_kdf_param or b"",
             l0_key.kdf_param_size,
-            l0_key.kds_root_key_data,
+            l0_key.kds_root_key_data or b"",
             64,
             kdf_context_modified, len(kdf_context_modified),
             1, derived_key,
@@ -171,7 +171,7 @@ class GmsaPassword:
             generated_derived_key = derived_key.copy()
             
             derived_key = GmsaPassword._generate_derived_key(
-                l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param,
+                l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
                 31 - l1_key_id, derived_key,
@@ -185,7 +185,7 @@ class GmsaPassword:
             generated_derived_key = derived_key.copy()
             
             derived_key2 = GmsaPassword._generate_derived_key(
-                l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param,
+                l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
                 1, derived_key2,
@@ -214,7 +214,7 @@ class GmsaPassword:
         some_flag = 32 - l2_key_id
         
         derived_key = GmsaPassword._generate_derived_key(
-            l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param,
+            l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
             l0_key.kdf_param_size, l1_derived_key,
             64, kdf_context, len(kdf_context),
             some_flag, derived_key,
@@ -352,16 +352,16 @@ class GmsaPassword:
                 
                 # Générer la clé dérivée pour L2
                 pwd_blob = GmsaPassword._generate_derived_key(
-                    gke.kdf_algorithm, gke.kdf_parameters,
-                    len(gke.kdf_parameters), l2_key,
+                    gke.kdf_algorithm, gke.kdf_parameters or b"",
+                    len(gke.kdf_parameters) if gke.kdf_parameters else 0, l2_key,
                     64, sid, len(sid),
                     0, pwd_blob, pwd_blob_size, 0
                 )
         
         # Génération finale du mot de passe
         pwd_blob = GmsaPassword._generate_derived_key(
-            gke.kdf_algorithm, gke.kdf_parameters,
-            len(gke.kdf_parameters), l2_key if l2_key else l1_key,
+            gke.kdf_algorithm, gke.kdf_parameters or b"",
+            len(gke.kdf_parameters) if gke.kdf_parameters else 0, l2_key if l2_key else l1_key,
             64, sid, len(sid),
             0, pwd_blob, pwd_blob_size, 0
         )
