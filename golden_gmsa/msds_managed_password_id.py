@@ -92,18 +92,51 @@ class MsdsManagedPasswordId:
         Returns:
             Instance de MsdsManagedPasswordId ou None si non trouvé
         """
-        attributes = ["msds-ManagedPasswordID"]
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Essayer différentes variantes de l'attribut (insensible à la casse)
+        attributes_variants = [
+            "msds-ManagedPasswordID",
+            "msDS-ManagedPasswordID",
+            "MSDS-ManagedPasswordID",
+            "msds-ManagedPasswordId"
+        ]
+        
         ldap_filter = f"(objectSID={sid})"
         
-        results = LdapUtils.find_in_domain(domain_name, ldap_filter, attributes)
+        logger.debug(f"Recherche pwd_id pour SID: {sid}, domaine: {domain_name}")
+        logger.debug(f"Filtre LDAP: {ldap_filter}")
+        
+        results = LdapUtils.find_in_domain(domain_name, ldap_filter, attributes_variants)
         
         if not results:
+            logger.warning(f"Aucun résultat trouvé pour SID {sid}")
             return None
         
-        if "msds-ManagedPasswordID" not in results[0]:
+        logger.debug(f"Résultats trouvés: {len(results)}")
+        logger.debug(f"Attributs disponibles dans le résultat: {list(results[0].keys()) if results else 'None'}")
+        
+        # Chercher l'attribut avec différentes casse
+        pwd_id_blob = None
+        for attr_name in attributes_variants:
+            if attr_name in results[0] and results[0][attr_name]:
+                pwd_id_blob = results[0][attr_name][0]
+                logger.debug(f"Trouvé avec attribut: {attr_name}")
+                break
+        
+        # Si toujours pas trouvé, chercher dans toutes les clés (insensible à la casse)
+        if not pwd_id_blob:
+            for key in results[0].keys():
+                if key.lower() == "msds-managedpasswordid":
+                    pwd_id_blob = results[0][key][0]
+                    logger.debug(f"Trouvé avec clé (insensible à la casse): {key}")
+                    break
+        
+        if not pwd_id_blob:
+            logger.warning(f"Attribut msds-ManagedPasswordID non trouvé dans les résultats")
             return None
         
-        pwd_id_blob = results[0]["msds-ManagedPasswordID"][0]
         return MsdsManagedPasswordId(pwd_id_blob)
     
     def to_string(self) -> str:

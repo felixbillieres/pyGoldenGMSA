@@ -162,8 +162,15 @@ def process_compute(args):
             args.sid, root_key, pwd_id, domain_name, forest_name
         )
         
+        # Le password blob contient 256 bytes, les 32 premiers bytes sont le hash NTLM (16 LM + 16 NT)
+        if len(pwd_bytes) >= 32:
+            lm_hash = pwd_bytes[:16].hex()
+            nt_hash = pwd_bytes[16:32].hex()
+            print(f"NTLM Hash (LM:NT):\t{lm_hash}:{nt_hash}")
+            print(f"NTLM Hash (NT only):\t{nt_hash}")
+        
         import base64
-        print(f"Mot de passe encodé en Base64:\t{base64.b64encode(pwd_bytes).decode('utf-8')}")
+        print(f"Password Blob (Base64):\t{base64.b64encode(pwd_bytes).decode('utf-8')}")
         
     except Exception as ex:
         print(f"ERREUR: {ex}")
