@@ -181,6 +181,15 @@ def process_compute(args):
             nt_hash = pwd_bytes[16:32].hex()
             print(f"NTLM Hash (LM:NT):\t{lm_hash}:{nt_hash}")
             print(f"NTLM Hash (NT only):\t{nt_hash}")
+            
+            # Format pour nxc/impacket avec LM vide (format standard)
+            lm_hash_empty = "aad3b435b51404eeaad3b435b51404ee"
+            print(f"NTLM Hash (nxc format):\t{lm_hash_empty}:{nt_hash}")
+        
+        if args.verbose and len(pwd_bytes) >= 256:
+            print(f"\n[DÉBOGAGE] First 64 bytes (hex):\t{pwd_bytes[:64].hex()}")
+            print(f"[DÉBOGAGE] Bytes 0-15 (LM):\t\t{pwd_bytes[:16].hex()}")
+            print(f"[DÉBOGAGE] Bytes 16-31 (NT):\t\t{pwd_bytes[16:32].hex()}")
         
         import base64
         print(f"Password Blob (Base64):\t{base64.b64encode(pwd_bytes).decode('utf-8')}")
