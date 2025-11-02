@@ -176,6 +176,8 @@ def process_compute(args):
             print(f"SID:\t\t\t{args.sid}")
         
         # Le password blob contient 256 bytes, les 32 premiers bytes sont le hash NTLM (16 LM + 16 NT)
+        # NOTE: L'implémentation Python utilise une approximation du KDF (HMAC-SHA256/PBKDF2)
+        # au lieu de kdscli.dll. Les hashes peuvent différer de GoldenGMSA C#.
         if len(pwd_bytes) >= 32:
             lm_hash = pwd_bytes[:16].hex()
             nt_hash = pwd_bytes[16:32].hex()
@@ -185,6 +187,9 @@ def process_compute(args):
             # Format pour nxc/impacket avec LM vide (format standard)
             lm_hash_empty = "aad3b435b51404eeaad3b435b51404ee"
             print(f"NTLM Hash (nxc format):\t{lm_hash_empty}:{nt_hash}")
+            
+            print(f"\n⚠️  AVERTISSEMENT: L'implémentation Python utilise une approximation du KDF.")
+            print(f"   Si l'authentification échoue, comparez avec GoldenGMSA C# pour validation.")
         
         if args.verbose and len(pwd_bytes) >= 256:
             print(f"\n[DÉBOGAGE] First 64 bytes (hex):\t{pwd_bytes[:64].hex()}")
