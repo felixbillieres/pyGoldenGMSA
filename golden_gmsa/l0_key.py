@@ -20,8 +20,8 @@ class L0Key(RootKey):
             l0_key_id: Identifiant de la clé L0
             derived_key: Clé dérivée
         """
-        # Copier tous les attributs de la clé racine
-        super().__init__()
+        # Ne pas appeler super().__init__() car nous copions manuellement tous les attributs
+        # super().__init__()  # Commenté pour éviter l'erreur
         
         # Copier manuellement les attributs
         self.ms_kds_version = root_key.ms_kds_version
@@ -30,11 +30,11 @@ class L0Key(RootKey):
         self.ms_kds_version2 = root_key.ms_kds_version
         self.prob_reserved2 = 0
         self.ms_kds_kdf_algorithm_id = root_key.ms_kds_kdf_algorithm_id
-        self.ms_kds_kdf_param = root_key.ms_kds_kdf_param.copy() if root_key.ms_kds_kdf_param else None
+        self.ms_kds_kdf_param = root_key.ms_kds_kdf_param[:] if root_key.ms_kds_kdf_param else None
         self.kdf_param_size = root_key.kdf_param_size
         self.prob_reserved3 = root_key.prob_reserved3
         self.kds_secret_agreement_algorithm_id = root_key.kds_secret_agreement_algorithm_id
-        self.kds_secret_agreement_param = root_key.kds_secret_agreement_param.copy() if root_key.kds_secret_agreement_param else None
+        self.kds_secret_agreement_param = root_key.kds_secret_agreement_param[:] if root_key.kds_secret_agreement_param else None
         self.secret_algorithm_param_size = root_key.secret_algorithm_param_size
         self.private_key_length = root_key.private_key_length
         self.public_key_length = root_key.public_key_length

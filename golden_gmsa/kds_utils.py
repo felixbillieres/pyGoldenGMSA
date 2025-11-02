@@ -88,7 +88,7 @@ class KdsUtils:
         Returns:
             Dictionnaire contenant les clés calculées
         """
-        from msds_managed_password_id import MsdsManagedPasswordId
+        from .msds_managed_password_id import MsdsManagedPasswordId
         
         new_l2_key_id = 31
         l1_key_diff = 0

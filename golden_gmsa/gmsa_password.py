@@ -274,9 +274,9 @@ class GmsaPassword:
         gke.cb_domain_name = len(domain_name.encode('utf-16le'))
         gke.cb_forest_name = len(forest_name.encode('utf-16le'))
         gke.kdf_algorithm = l0_key.ms_kds_kdf_algorithm_id
-        gke.kdf_parameters = l0_key.ms_kds_kdf_param.copy() if l0_key.ms_kds_kdf_param else b""
+        gke.kdf_parameters = l0_key.ms_kds_kdf_param[:] if l0_key.ms_kds_kdf_param else b""
         gke.secret_agreement_algorithm = l0_key.kds_secret_agreement_algorithm_id
-        gke.secret_agreement_parameters = l0_key.kds_secret_agreement_param.copy() if l0_key.kds_secret_agreement_param else b""
+        gke.secret_agreement_parameters = l0_key.kds_secret_agreement_param[:] if l0_key.kds_secret_agreement_param else b""
         gke.domain_name = domain_name
         gke.forest_name = forest_name
         
