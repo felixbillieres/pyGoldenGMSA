@@ -188,8 +188,8 @@ def process_compute(args):
             lm_hash_empty = "aad3b435b51404eeaad3b435b51404ee"
             print(f"NTLM Hash (nxc format):\t{lm_hash_empty}:{nt_hash}")
             
-            print(f"\n⚠️  AVERTISSEMENT: L'implémentation Python utilise une approximation du KDF.")
-            print(f"   Si l'authentification échoue, comparez avec GoldenGMSA C# pour validation.")
+            print(f"\n⚠️  NOTE: SP800-108 CTR HMAC implémenté, mais l'authentification peut échouer.")
+            print(f"   Comparez avec GoldenGMSA C# pour validation si nécessaire.")
         
         if args.verbose and len(pwd_bytes) >= 256:
             print(f"\n[DÉBOGAGE] First 64 bytes (hex):\t{pwd_bytes[:64].hex()}")
