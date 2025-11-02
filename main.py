@@ -127,8 +127,32 @@ def process_compute(args):
             root_key = RootKey.get_root_key_by_guid(forest_name, pwd_id.root_key_identifier)
         else:
             import base64
-            root_key_bytes = base64.b64decode(args.kdskey)
-            root_key = RootKey(root_key_bytes=root_key_bytes)
+            try:
+                # Nettoyer la chaîne Base64 (supprimer espaces et retours à la ligne)
+                kdskey_clean = args.kdskey.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+                if not kdskey_clean:
+                    print(f"ERREUR: La clé KDS fournie est vide")
+                    return
+                root_key_bytes = base64.b64decode(kdskey_clean)
+                if not root_key_bytes:
+                    print(f"ERREUR: La clé KDS décodée est vide")
+                    return
+                root_key = RootKey(root_key_bytes=root_key_bytes)
+            except base64.binascii.Error as e:
+                print(f"ERREUR: Format Base64 invalide pour la clé KDS: {e}")
+                if args.verbose:
+                    traceback.print_exc()
+                return
+            except ValueError as e:
+                print(f"ERREUR: {e}")
+                if args.verbose:
+                    traceback.print_exc()
+                return
+            except Exception as e:
+                print(f"ERREUR: Impossible de décoder ou d'initialiser la clé KDS: {e}")
+                if args.verbose:
+                    traceback.print_exc()
+                return
         
         if root_key is None:
             print(f"Échec de localisation de la clé racine KDS avec ID {pwd_id.root_key_identifier}")

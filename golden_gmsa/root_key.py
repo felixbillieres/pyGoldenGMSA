@@ -25,11 +25,13 @@ class RootKey:
             file_path: Chemin vers un fichier de clé racine
             root_key_bytes: Données binaires de la clé racine
         """
-        if search_result:
+        if search_result is not None:
             self._init_from_search_result(search_result)
-        elif file_path:
+        elif file_path is not None:
             self._init_from_file(file_path)
-        elif root_key_bytes:
+        elif root_key_bytes is not None:
+            if not root_key_bytes:
+                raise ValueError("root_key_bytes ne peut pas être une chaîne vide")
             self._init_from_bytes(root_key_bytes)
         else:
             raise ValueError("Un paramètre doit être fourni (search_result, file_path, ou root_key_bytes)")
