@@ -113,7 +113,7 @@ class GmsaPassword:
             0
         )
         
-        # Générer la clé dérivée
+        # Générer la clé dérivée (pas de label pour L0)
         generate_derived_key = GmsaPassword._generate_derived_key(
             root_key.ms_kds_kdf_algorithm_id,
             root_key.ms_kds_kdf_param or b"",
@@ -121,7 +121,8 @@ class GmsaPassword:
             root_key.kds_root_key_data or b"",
             root_key.kds_root_key_data_size if root_key.kds_root_key_data else 0,
             kdf_context, len(kdf_context),
-            1, generate_derived_key := bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT),
+            1, b"", 0,  # Pas de label pour L0
+            generate_derived_key := bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT),
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
         )
         
@@ -152,7 +153,7 @@ class GmsaPassword:
         kdf_context_modified[:len(kdf_context)] = kdf_context
         kdf_context_modified[len(kdf_context):] = security_descriptor
         
-        # Générer la première clé dérivée
+        # Générer la première clé dérivée (pas de label pour L1)
         derived_key = GmsaPassword._generate_derived_key(
             l0_key.ms_kds_kdf_algorithm_id,
             l0_key.ms_kds_kdf_param or b"",
@@ -160,7 +161,8 @@ class GmsaPassword:
             l0_key.kds_root_key_data or b"",
             64,
             kdf_context_modified, len(kdf_context_modified),
-            1, derived_key,
+            1, b"", 0,  # Pas de label pour L1
+            derived_key,
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
         )
         
@@ -174,7 +176,8 @@ class GmsaPassword:
                 l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
-                31 - l1_key_id, derived_key,
+                31 - l1_key_id, b"", 0,  # Pas de label
+                derived_key,
                 KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
             )
         
@@ -188,7 +191,8 @@ class GmsaPassword:
                 l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
-                1, derived_key2,
+                1, b"", 0,  # Pas de label
+                derived_key2,
                 KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
             )
         
@@ -217,7 +221,8 @@ class GmsaPassword:
             l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
             l0_key.kdf_param_size, l1_derived_key,
             64, kdf_context, len(kdf_context),
-            some_flag, derived_key,
+            some_flag, b"", 0,  # Pas de label pour L2
+            derived_key,
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
         )
         
@@ -350,20 +355,22 @@ class GmsaPassword:
                 if l2_key is None:
                     l2_key = bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT)
                 
-                # Générer la clé dérivée pour L2
+                # Générer la clé dérivée pour L2 (pas de label ici)
                 pwd_blob = GmsaPassword._generate_derived_key(
                     gke.kdf_algorithm, gke.kdf_parameters or b"",
                     len(gke.kdf_parameters) if gke.kdf_parameters else 0, l2_key,
                     64, sid, len(sid),
-                    0, pwd_blob, pwd_blob_size, 0
+                    0, b"", 0,  # Pas de label pour ce cas
+                    pwd_blob, pwd_blob_size, 0
                 )
         
-        # Génération finale du mot de passe
+        # Génération finale du mot de passe (avec label "GMSA PASSWORD\x0")
         pwd_blob = GmsaPassword._generate_derived_key(
             gke.kdf_algorithm, gke.kdf_parameters or b"",
             len(gke.kdf_parameters) if gke.kdf_parameters else 0, l2_key if l2_key else l1_key,
             64, sid, len(sid),
-            0, pwd_blob, pwd_blob_size, 0
+            0, label, len(label),  # Label "GMSA PASSWORD\x0" pour le password blob final
+            pwd_blob, pwd_blob_size, 0
         )
         
         return bytes(pwd_blob)
@@ -390,30 +397,90 @@ class GmsaPassword:
     @staticmethod
     def _generate_derived_key(kdf_algorithm_id: str, kdf_param: bytes, kdf_param_size: int,
                              pb_secret: bytes, cb_secret: int, context: bytes, context_size: int,
-                             not_sure: int, pb_derived_key: bytearray, cb_derived_key: int,
+                             not_sure: int, label: bytes, label_size: int,
+                             pb_derived_key: bytearray, cb_derived_key: int,
                              always_zero: int) -> bytearray:
         """
-        Génère une clé dérivée (implémentation simplifiée).
+        Génère une clé dérivée en utilisant SP800-108 CTR HMAC selon la spécification NIST.
+        
+        Args:
+            kdf_algorithm_id: Identifiant de l'algorithme KDF (ex: "SP800_108_CTR_HMAC")
+            kdf_param: Paramètres KDF optionnels
+            kdf_param_size: Taille des paramètres KDF
+            pb_secret: Clé secrète d'entrée
+            cb_secret: Taille de la clé secrète
+            context: Contexte KDF
+            context_size: Taille du contexte
+            not_sure: Flag (référence, peut être modifié)
+            label: Label KDF (ex: "GMSA PASSWORD" + null byte en UTF-16LE)
+            label_size: Taille du label
+            pb_derived_key: Buffer de sortie pour la clé dérivée
+            cb_derived_key: Taille désirée de la clé dérivée
+            always_zero: Toujours zéro
         
         Returns:
             Clé dérivée générée
         """
-        # Implémentation simplifiée utilisant HMAC-SHA256
-        # Dans le vrai code, ceci utiliserait kdscli.dll avec l'algorithme KDF approprié
-        
         if kdf_algorithm_id == "SP800_108_CTR_HMAC":
-            # Utiliser HMAC-SHA256 comme approximation
-            key_material = pb_secret + context
-            derived_key = hashlib.pbkdf2_hmac('sha256', key_material, b'salt', 10000, cb_derived_key)
-            pb_derived_key[:len(derived_key)] = derived_key
+            # Implémentation de SP800-108 CTR HMAC selon la spécification NIST
+            # Le paramètre not_sure indique le nombre d'itérations à faire
+            # Diviser la sortie désirée en blocs de la taille du hash (32 bytes pour SHA-256)
+            hash_size = 32  # SHA-256
+            num_blocks = (cb_derived_key + hash_size - 1) // hash_size
+            
+            # Extraire la clé HMAC du secret (utiliser les premiers cb_secret bytes)
+            hmac_key = pb_secret[:cb_secret] if cb_secret > 0 else pb_secret
+            
+            # Extraire le label et le contexte
+            label_bytes = label[:label_size] if label_size > 0 else b""
+            context_bytes = context[:context_size] if context_size > 0 else b""
+            
+            # Construire le FixedInputData = Label || Context (sans 0x00 pour Windows)
+            # Windows utilise probablement: Label || Context (sans séparateur)
+            fixed_input = label_bytes + context_bytes
+            
+            # Si not_sure > 1, on doit faire plusieurs itérations
+            # Pour chaque itération, on décrémente le contexte à l'index not_sure
+            current_secret = hmac_key
+            for iteration in range(not_sure if not_sure > 0 else 1):
+                # Générer chaque bloc pour cette itération
+                derived_key_bytes = bytearray()
+                for i in range(1, num_blocks + 1):
+                    # Construire InputBlock = FixedInputData || [i]
+                    # où [i] est l'index du bloc encodé sur 4 bytes en big-endian
+                    counter_bytes = struct.pack('>I', i)  # Big-endian 32-bit integer
+                    input_block = fixed_input + counter_bytes
+                    
+                    # K(i) = HMAC-SHA256(K_I, InputBlock)
+                    k_i = hmac.new(current_secret, input_block, hashlib.sha256).digest()
+                    derived_key_bytes.extend(k_i)
+                
+                # Pour l'itération suivante, utiliser la clé dérivée comme nouvelle clé secrète
+                if iteration < (not_sure if not_sure > 0 else 1) - 1:
+                    current_secret = derived_key_bytes[:cb_secret] if cb_secret > 0 else derived_key_bytes
+                    # Modifier le contexte pour la prochaine itération
+                    if len(context_bytes) > 0 and not_sure > 0:
+                        # Décrémenter le byte à l'index not_sure dans le contexte
+                        context_bytes = bytearray(context_bytes)
+                        if not_sure < len(context_bytes):
+                            context_bytes[not_sure] = (context_bytes[not_sure] - 1) & 0xFF
+                        context_bytes = bytes(context_bytes)
+                        fixed_input = label_bytes + context_bytes
+            
+            # Tronquer à la taille désirée
+            result = derived_key_bytes[:cb_derived_key]
+            pb_derived_key[:len(result)] = result
+            
+            return pb_derived_key
         else:
-            # Fallback: utiliser HMAC simple
-            key_material = pb_secret + context
+            # Fallback: utiliser HMAC simple pour autres algorithmes
+            key_material = pb_secret[:cb_secret] if cb_secret > 0 else pb_secret
+            context_bytes = context[:context_size] if context_size > 0 else b""
             hmac_key = hashlib.sha256(key_material).digest()
-            derived_key = hmac.new(hmac_key, context, hashlib.sha256).digest()
-            pb_derived_key[:min(len(derived_key), cb_derived_key)] = derived_key[:cb_derived_key]
-        
-        return pb_derived_key
+            derived_key = hmac.new(hmac_key, context_bytes, hashlib.sha256).digest()
+            result = derived_key[:cb_derived_key]
+            pb_derived_key[:len(result)] = result
+            return pb_derived_key
     
     @staticmethod
     def _sid_to_bytes(sid: str) -> bytes:
