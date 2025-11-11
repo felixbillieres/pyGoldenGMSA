@@ -260,13 +260,8 @@ class RootKey:
         
         # Note: GUID conversion simplifiée
         cn_bytes = bytes.fromhex(self.cn.replace('-', ''))
-
-        struct.pack_into('<I', root_key_bytes, 4, int.from_bytes(cn_bytes[:4], 'big'))
-        struct.pack_into('<H', root_key_bytes, 8, int.from_bytes(cn_bytes[4:6], 'big'))
-        struct.pack_into('<H', root_key_bytes, 10, int.from_bytes(cn_bytes[6:8], 'big'))
-
-        struct.pack_into('>H', root_key_bytes, 12, int.from_bytes(cn_bytes[8:10], 'big'))
-        struct.pack_into('>3H', root_key_bytes, 14, int.from_bytes(cn_bytes[10:12], 'big'), int.from_bytes(cn_bytes[12:14], 'big'), int.from_bytes(cn_bytes[14:16], 'big'))
+        struct.pack_into('<IHH', root_key_bytes, 4, int.from_bytes(cn_bytes[:4]), int.from_bytes(cn_bytes[4:6]), int.from_bytes(cn_bytes[6:8]))
+        struct.pack_into('>Q', root_key_bytes, 12, int.from_bytes(cn_bytes[8:]))
 
         struct.pack_into('<I', root_key_bytes, 20, self.prob_reserved)
         struct.pack_into('<I', root_key_bytes, 24, self.ms_kds_version2)
@@ -274,18 +269,60 @@ class RootKey:
         
         # Écrire msKdsKDFAlgorithmID
         ms_kds_kdf_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
-        ms_kds_kdf_algorithm_id_bytes_size = len(ms_kds_kdf_algorithm_id_bytes)
-        struct.pack_into('<I', root_key_bytes, 32, ms_kds_kdf_algorithm_id_bytes_size)
-        root_key_bytes[36:36+ms_kds_kdf_algorithm_id_bytes_size] = ms_kds_kdf_algorithm_id_bytes
-        struct.pack_into('<I', root_key_bytes, 36+ms_kds_kdf_algorithm_id_bytes_size, self.kdf_param_size)
-        if self.ms_kds_kdf_param:
-            root_key_bytes[40+ms_kds_kdf_algorithm_id_bytes_size:40+ms_kds_kdf_algorithm_id_bytes_size+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
-            track_size += len(self.ms_kds_kdf_param) + ms_kds_kdf_algorithm_id_bytes_size + 4
-        else:
-            track_size += ms_kds_kdf_algorithm_id_bytes_size + 4
-        
-        # Continuer avec les autres champs...
-        # (Implémentation simplifiée pour l'exemple)
+        ms_kds_kdf_algorithm_id_length = len(ms_kds_kdf_algorithm_id_bytes)
+
+        struct.pack_into('<I', root_key_bytes, 32, ms_kds_kdf_algorithm_id_length)
+        struct.pack_into(f'<{ms_kds_kdf_algorithm_id_length}s', root_key_bytes, track_size, ms_kds_kdf_algorithm_id_bytes)
+
+        track_size += ms_kds_kdf_algorithm_id_length
+
+        # Écrire msKdsKDFParam
+        struct.pack_into('<I', root_key_bytes, track_size, self.kdf_param_size)
+        track_size += 4
+        root_key_bytes[track_size:track_size+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
+        track_size += len(self.ms_kds_kdf_param)
+
+        struct.pack_into('<I', root_key_bytes, track_size, self.prob_reserved3)
+        trackSize += 4
+
+        # Écrire msKdsKDFAgreementAlgorithmID
+        kds_secret_agreement_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
+        kds_secret_agreement_algorithm_id_length = len(kds_secret_agreement_algorithm_id_bytes)
+
+        struct.pack_into('<I', root_key_bytes, track_size, kds_secret_agreement_algorithm_id_length)
+        track_size += 4
+        struct.pack_into(f'<{kds_secret_agreement_algorithm_id_length}s', root_key_bytes, track_size, kds_secret_agreement_algorithm_id_bytes)
+        track_size += kds_secret_agreement_algorithm_id_length
+
+        struct.pack_into('<I', root_key_bytes, track_size, self.secret_algorithm_param_size)
+        track_size += 4
+
+        root_key_bytes[track_size:track_size+self.secret_algorithm_param_size] = self.kds_secret_agreement_param
+        track_size += self.secret_algorithm_param_size
+
+        struct.pack_into('<I', root_key_bytes, track_size, self.private_key_length)
+        struct.pack_into('<I', root_key_bytes, track_size + 4, self.public_key_length)
+        struct.pack_into('<I', root_key_bytes, track_size + 8, self.prob_reserved4)
+        struct.pack_into('<I', root_key_bytes, track_size + 12, self.prob_reserved5)
+        struct.pack_into('<I', root_key_bytes, track_size + 16, self.prob_reserved6)
+        struct.pack_into('<Q', root_key_bytes, track_size + 20, self.flag)
+        struct.pack_into('<Q', root_key_bytes, track_size + 28, self.flag2)
+        track_size += 36
+
+        # Écrire KdsDomainID
+        kds_domain_id_bytes = self.kds_domain_id.encode('utf-16le')
+        kds_domain_id_length = len(kds_domain_id_bytes)
+
+        struct.pack_into('<I', root_key_bytes, track_size, kds_domain_id_length)
+        track_size += 4
+        struct.pack_into(f'<{kds_domain_id_length}s', root_key_bytes, track_size, kds_domain_id_bytes)
+        track_size += kds_domain_id_length
+
+        struct.pack_into('<Q', root_key_bytes, track_size, self.kds_create_time)
+        struct.pack_into('<Q', root_key_bytes, track_size + 8, self.kds_use_start_time)
+        struct.pack_into('<Q', root_key_bytes, track_size + 16, self.prob_reserved7)
+        struct.pack_into('<Q', root_key_bytes, track_size + 24, self.kds_root_key_data_size)
+        struct.pack_into('<Q', root_key_bytes, track_size + 32, self.kds_root_key_data)
 
         return bytes(root_key_bytes)
     
