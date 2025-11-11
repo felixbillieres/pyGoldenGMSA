@@ -283,7 +283,7 @@ class RootKey:
         track_size += len(self.ms_kds_kdf_param)
 
         struct.pack_into('<I', root_key_bytes, track_size, self.prob_reserved3)
-        trackSize += 4
+        track_size += 4
 
         # Écrire msKdsKDFAgreementAlgorithmID
         kds_secret_agreement_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
@@ -322,7 +322,8 @@ class RootKey:
         struct.pack_into('<Q', root_key_bytes, track_size + 8, self.kds_use_start_time)
         struct.pack_into('<Q', root_key_bytes, track_size + 16, self.prob_reserved7)
         struct.pack_into('<Q', root_key_bytes, track_size + 24, self.kds_root_key_data_size)
-        struct.pack_into('<Q', root_key_bytes, track_size + 32, self.kds_root_key_data)
+        root_key_bytes[track_size+32:track_size+32+self.kds_root_key_data_size] = self.kds_root_key_data
+
 
         return bytes(root_key_bytes)
     
