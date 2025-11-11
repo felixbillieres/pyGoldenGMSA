@@ -214,7 +214,7 @@ class RootKey:
             ldap_filter = "(objectClass=msKds-ProvRootKey)"
             
             results = LdapUtils.find_in_config_partition(forest_name, ldap_filter, KDS_ROOT_KEY_REQUIRED_ATTRIBUTES)
-            
+
             if not results:
                 return
             
@@ -257,26 +257,36 @@ class RootKey:
         
         # Écrire les premiers champs
         struct.pack_into('<I', root_key_bytes, 0, self.ms_kds_version)
+        
         # Note: GUID conversion simplifiée
-        root_key_bytes[4:20] = self.cn.encode('utf-8')[:16].ljust(16, b'\x00')
+        cn_bytes = bytes.fromhex(self.cn.replace('-', ''))
+
+        struct.pack_into('<I', root_key_bytes, 4, int.from_bytes(cn_bytes[:4], 'big'))
+        struct.pack_into('<H', root_key_bytes, 8, int.from_bytes(cn_bytes[4:6], 'big'))
+        struct.pack_into('<H', root_key_bytes, 10, int.from_bytes(cn_bytes[6:8], 'big'))
+
+        struct.pack_into('>H', root_key_bytes, 12, int.from_bytes(cn_bytes[8:10], 'big'))
+        struct.pack_into('>3H', root_key_bytes, 14, int.from_bytes(cn_bytes[10:12], 'big'), int.from_bytes(cn_bytes[12:14], 'big'), int.from_bytes(cn_bytes[14:16], 'big'))
+
         struct.pack_into('<I', root_key_bytes, 20, self.prob_reserved)
         struct.pack_into('<I', root_key_bytes, 24, self.ms_kds_version2)
         struct.pack_into('<I', root_key_bytes, 28, self.prob_reserved2)
         
         # Écrire msKdsKDFAlgorithmID
         ms_kds_kdf_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
-        struct.pack_into('<I', root_key_bytes, 32, len(ms_kds_kdf_algorithm_id_bytes))
-        root_key_bytes[36:36+len(ms_kds_kdf_algorithm_id_bytes)] = ms_kds_kdf_algorithm_id_bytes
-        struct.pack_into('<I', root_key_bytes, 36+len(ms_kds_kdf_algorithm_id_bytes), self.kdf_param_size)
+        ms_kds_kdf_algorithm_id_bytes_size = len(ms_kds_kdf_algorithm_id_bytes)
+        struct.pack_into('<I', root_key_bytes, 32, ms_kds_kdf_algorithm_id_bytes_size)
+        root_key_bytes[36:36+ms_kds_kdf_algorithm_id_bytes_size] = ms_kds_kdf_algorithm_id_bytes
+        struct.pack_into('<I', root_key_bytes, 36+ms_kds_kdf_algorithm_id_bytes_size, self.kdf_param_size)
         if self.ms_kds_kdf_param:
-            root_key_bytes[40+len(ms_kds_kdf_algorithm_id_bytes):40+len(ms_kds_kdf_algorithm_id_bytes)+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
-            track_size += len(self.ms_kds_kdf_param) + len(ms_kds_kdf_algorithm_id_bytes) + 4
+            root_key_bytes[40+ms_kds_kdf_algorithm_id_bytes_size:40+ms_kds_kdf_algorithm_id_bytes_size+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
+            track_size += len(self.ms_kds_kdf_param) + ms_kds_kdf_algorithm_id_bytes_size + 4
         else:
-            track_size += len(ms_kds_kdf_algorithm_id_bytes) + 4
+            track_size += ms_kds_kdf_algorithm_id_bytes_size + 4
         
         # Continuer avec les autres champs...
         # (Implémentation simplifiée pour l'exemple)
-        
+
         return bytes(root_key_bytes)
     
     def to_base64_string(self) -> str:

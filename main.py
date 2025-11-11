@@ -65,7 +65,7 @@ def process_kds_info(args):
         forest_name = args.forest.lower() if args.forest else LdapUtils.get_current_forest()
         if forest_name:
             forest_name = forest_name.lower()
-        
+
         if args.guid:
             root_key = RootKey.get_root_key_by_guid(forest_name, args.guid)
             if root_key is None:
@@ -75,8 +75,8 @@ def process_kds_info(args):
         else:
             root_keys = RootKey.get_all_root_keys(forest_name)
             for root_key in root_keys:
-                print(root_key.to_string())
-                
+                print("Test: " + root_key.to_string())
+
     except Exception as ex:
         print(f"ERREUR: {ex}")
         if args.verbose:
