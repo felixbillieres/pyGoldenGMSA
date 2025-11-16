@@ -110,7 +110,7 @@ class RootKey:
         
         # Lire les premiers champs
         self.ms_kds_version = struct.unpack('<I', root_key_bytes[0:4])[0]
-        self.cn = str(root_key_bytes[4:20])  # GUID en bytes
+        self.cn = '-'.join([cn_bytes[:4][::-1].hex(), cn_bytes[4:6][::-1].hex(), cn_bytes[6:8][::-1].hex(), cn_bytes[8:10].hex(), cn_bytes[10:].hex()])  # GUID en bytes
         self.prob_reserved = struct.unpack('<I', root_key_bytes[20:24])[0]
         self.ms_kds_version2 = struct.unpack('<I', root_key_bytes[24:28])[0]
         self.prob_reserved2 = struct.unpack('<I', root_key_bytes[28:32])[0]
