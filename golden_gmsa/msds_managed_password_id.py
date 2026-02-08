@@ -1,5 +1,5 @@
 """
-Module pour la gestion des identifiants de mot de passe géré MSDS.
+Module for handling MSDS managed password identifiers.
 """
 
 import struct
@@ -10,24 +10,24 @@ from .ldap_utils import LdapUtils
 
 def format_guid(guid_bytes: bytes) -> str:
     """
-    Formate un GUID en bytes vers sa représentation string UUID.
-    
+    Formats a GUID from bytes to its UUID string representation.
+
     Args:
-        guid_bytes: GUID au format bytes (16 bytes)
-        
+        guid_bytes: GUID in bytes format (16 bytes)
+
     Returns:
-        GUID au format string (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+        GUID in string format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
     """
     if not guid_bytes or len(guid_bytes) != 16:
         return str(guid_bytes)
     
     try:
-        # Convertir les bytes en UUID standard
-        # Les GUIDs Microsoft utilisent un ordre mixte (little-endian pour les 3 premiers groupes)
+        # Convert the bytes to a standard UUID
+        # Microsoft GUIDs use a mixed byte order (little-endian for the first 3 groups)
         guid_uuid = uuid.UUID(bytes_le=guid_bytes)
         return str(guid_uuid)
     except Exception:
-        # Fallback : format simple en hex
+        # Fallback: simple hex format
         return '-'.join([
             guid_bytes[0:4].hex(),
             guid_bytes[4:6].hex(),
@@ -39,19 +39,19 @@ def format_guid(guid_bytes: bytes) -> str:
 
 class MsdsManagedPasswordId:
     """
-    Classe représentant un identifiant de mot de passe géré MSDS.
+    Class representing an MSDS managed password identifier.
     """
     
     def __init__(self, pwd_blob: bytes):
         """
-        Initialise une instance de MsdsManagedPasswordId à partir d'un blob binaire.
-        
+        Initializes an MsdsManagedPasswordId instance from a binary blob.
+
         Args:
-            pwd_blob: Données binaires du blob de mot de passe géré
+            pwd_blob: Binary data of the managed password blob
         """
         self.msds_managed_password_id_bytes = pwd_blob
         
-        # Parser le blob binaire
+        # Parse the binary blob
         self.version = struct.unpack('<I', pwd_blob[0:4])[0]
         self.reserved = struct.unpack('<I', pwd_blob[4:8])[0]
         self.is_public_key = struct.unpack('<I', pwd_blob[8:12])[0]
@@ -66,36 +66,36 @@ class MsdsManagedPasswordId:
         self.cb_domain_name = struct.unpack('<I', pwd_blob[44:48])[0]
         self.cb_forest_name = struct.unpack('<I', pwd_blob[48:52])[0]
         
-        # Lire les données inconnues
+        # Read the unknown data
         if self.cb_unknown > 0:
             self.unknown = pwd_blob[52:52+self.cb_unknown]
         else:
             self.unknown = None
         
-        # Lire le nom de domaine
+        # Read the domain name
         domain_start = 52 + self.cb_unknown
         self.domain_name = pwd_blob[domain_start:domain_start+self.cb_domain_name].decode('utf-16le')
         
-        # Lire le nom de forêt
+        # Read the forest name
         forest_start = domain_start + self.cb_domain_name
         self.forest_name = pwd_blob[forest_start:forest_start+self.cb_forest_name].decode('utf-16le')
     
     @staticmethod
     def get_managed_password_id_by_sid(domain_name: str, sid: str) -> Optional['MsdsManagedPasswordId']:
         """
-        Récupère l'identifiant de mot de passe géré par SID.
-        
+        Retrieves the managed password identifier by SID.
+
         Args:
-            domain_name: Nom du domaine
-            sid: SID de l'objet
-            
+            domain_name: Domain name
+            sid: SID of the object
+
         Returns:
-            Instance de MsdsManagedPasswordId ou None si non trouvé
+            MsdsManagedPasswordId instance or None if not found
         """
         import logging
         logger = logging.getLogger(__name__)
         
-        # Essayer différentes variantes de l'attribut (insensible à la casse)
+        # Try different variants of the attribute (case-insensitive)
         attributes_variants = [
             "msds-ManagedPasswordID",
             "msDS-ManagedPasswordID",
@@ -105,46 +105,46 @@ class MsdsManagedPasswordId:
         
         ldap_filter = f"(objectSID={sid})"
         
-        logger.debug(f"Recherche pwd_id pour SID: {sid}, domaine: {domain_name}")
-        logger.debug(f"Filtre LDAP: {ldap_filter}")
+        logger.debug(f"Searching pwd_id for SID: {sid}, domain: {domain_name}")
+        logger.debug(f"LDAP filter: {ldap_filter}")
         
         results = LdapUtils.find_in_domain(domain_name, ldap_filter, attributes_variants)
         
         if not results:
-            logger.warning(f"Aucun résultat trouvé pour SID {sid}")
+            logger.warning(f"No results found for SID {sid}")
             return None
         
-        logger.debug(f"Résultats trouvés: {len(results)}")
-        logger.debug(f"Attributs disponibles dans le résultat: {list(results[0].keys()) if results else 'None'}")
+        logger.debug(f"Results found: {len(results)}")
+        logger.debug(f"Available attributes in result: {list(results[0].keys()) if results else 'None'}")
         
-        # Chercher l'attribut avec différentes casse
+        # Search for the attribute with different casings
         pwd_id_blob = None
         for attr_name in attributes_variants:
             if attr_name in results[0] and results[0][attr_name]:
                 pwd_id_blob = results[0][attr_name][0]
-                logger.debug(f"Trouvé avec attribut: {attr_name}")
+                logger.debug(f"Found with attribute: {attr_name}")
                 break
         
-        # Si toujours pas trouvé, chercher dans toutes les clés (insensible à la casse)
+        # If still not found, search all keys (case-insensitive)
         if not pwd_id_blob:
             for key in results[0].keys():
                 if key.lower() == "msds-managedpasswordid":
                     pwd_id_blob = results[0][key][0]
-                    logger.debug(f"Trouvé avec clé (insensible à la casse): {key}")
+                    logger.debug(f"Found with key (case-insensitive): {key}")
                     break
         
         if not pwd_id_blob:
-            logger.warning(f"Attribut msds-ManagedPasswordID non trouvé dans les résultats")
+            logger.warning(f"Attribute msds-ManagedPasswordID not found in results")
             return None
         
         return MsdsManagedPasswordId(pwd_id_blob)
     
     def to_string(self) -> str:
         """
-        Retourne une représentation string de l'objet.
-        
+        Returns a string representation of the object.
+
         Returns:
-            String formatée contenant les informations
+            Formatted string containing the information
         """
         import base64
         
@@ -162,9 +162,9 @@ class MsdsManagedPasswordId:
         return result
     
     def __str__(self) -> str:
-        """Retourne la représentation string de l'objet."""
+        """Returns the string representation of the object."""
         return self.to_string()
-    
+
     def __repr__(self) -> str:
-        """Retourne la représentation officielle de l'objet."""
+        """Returns the official representation of the object."""
         return f"MsdsManagedPasswordId(root_key_id='{self.root_key_identifier}', domain='{self.domain_name}')"

@@ -1,5 +1,5 @@
 """
-Module pour la gestion des enveloppes de clés de groupe.
+Module for managing group key envelopes.
 """
 
 import struct
@@ -8,11 +8,11 @@ from typing import Optional
 
 class GroupKeyEnvelope:
     """
-    Classe représentant une enveloppe de clé de groupe.
+    Class representing a group key envelope.
     """
     
     def __init__(self):
-        """Initialise une instance vide de GroupKeyEnvelope."""
+        """Initialize an empty GroupKeyEnvelope instance."""
         self.version = 0
         self.reserved = 0
         self.is_public_key = 0
@@ -41,10 +41,10 @@ class GroupKeyEnvelope:
     
     def __init__(self, gke_bytes: bytes = None):
         """
-        Initialise une instance de GroupKeyEnvelope.
-        
+        Initialize a GroupKeyEnvelope instance.
+
         Args:
-            gke_bytes: Données binaires de l'enveloppe (optionnel)
+            gke_bytes: Binary data of the envelope (optional)
         """
         if gke_bytes:
             self._init_from_bytes(gke_bytes)
@@ -52,7 +52,7 @@ class GroupKeyEnvelope:
             self._init_empty()
     
     def _init_empty(self):
-        """Initialise une instance vide."""
+        """Initialize an empty instance."""
         self.version = 0
         self.reserved = 0
         self.is_public_key = 0
@@ -80,7 +80,7 @@ class GroupKeyEnvelope:
         self.l2_key = None
     
     def _init_from_bytes(self, gke_bytes: bytes):
-        """Initialise à partir de données binaires."""
+        """Initialize from binary data."""
         self.version = struct.unpack('<I', gke_bytes[0:4])[0]
         self.reserved = struct.unpack('<I', gke_bytes[4:8])[0]
         self.is_public_key = struct.unpack('<I', gke_bytes[8:12])[0]
@@ -104,46 +104,46 @@ class GroupKeyEnvelope:
         
         cur_index = 80
         
-        # Lire KDFAlgorithm
+        # Read KDFAlgorithm
         self.kdf_algorithm = gke_bytes[cur_index:cur_index+self.cb_kdf_algorithm].decode('utf-16le')
         cur_index += self.cb_kdf_algorithm
         
-        # Lire KDFParameters
+        # Read KDFParameters
         if self.cb_kdf_parameters > 0:
             self.kdf_parameters = gke_bytes[cur_index:cur_index+self.cb_kdf_parameters]
         cur_index += self.cb_kdf_parameters
         
-        # Lire SecretAgreementAlgorithm
+        # Read SecretAgreementAlgorithm
         self.secret_agreement_algorithm = gke_bytes[cur_index:cur_index+self.cb_secret_agreement_algorithm].decode('utf-16le')
         cur_index += self.cb_secret_agreement_algorithm
         
-        # Lire SecretAgreementParameters
+        # Read SecretAgreementParameters
         if self.cb_secret_agreement_parameters > 0:
             self.secret_agreement_parameters = gke_bytes[cur_index:cur_index+self.cb_secret_agreement_parameters]
         cur_index += self.cb_secret_agreement_parameters
         
-        # Lire DomainName
+        # Read DomainName
         self.domain_name = gke_bytes[cur_index:cur_index+self.cb_domain_name].decode('utf-16le')
         cur_index += self.cb_domain_name
         
-        # Lire ForestName
+        # Read ForestName
         self.forest_name = gke_bytes[cur_index:cur_index+self.cb_forest_name].decode('utf-16le')
         cur_index += self.cb_forest_name
         
-        # Lire L1Key
+        # Read L1Key
         if self.cb_l1_key > 0:
             self.l1_key = gke_bytes[cur_index:cur_index+self.cb_l1_key]
         
-        # Lire L2Key
+        # Read L2Key
         if self.cb_l2_key > 0:
             self.l2_key = gke_bytes[cur_index+self.cb_l1_key:cur_index+self.cb_l1_key+self.cb_l2_key]
     
     def serialize(self) -> bytes:
         """
-        Sérialise l'enveloppe en données binaires.
-        
+        Serialize the envelope to binary data.
+
         Returns:
-            Données binaires de l'enveloppe
+            Binary data of the envelope
         """
         gke_size = (80 + self.cb_kdf_algorithm + self.cb_kdf_parameters + 
                    self.cb_secret_agreement_algorithm + self.cb_secret_agreement_parameters + 
@@ -151,7 +151,7 @@ class GroupKeyEnvelope:
         
         gke_bytes = bytearray(gke_size)
         
-        # Écrire les champs fixes
+        # Write fixed fields
         struct.pack_into('<I', gke_bytes, 0, self.version)
         struct.pack_into('<I', gke_bytes, 4, self.reserved)
         struct.pack_into('<I', gke_bytes, 8, self.is_public_key)
@@ -173,7 +173,7 @@ class GroupKeyEnvelope:
         struct.pack_into('<I', gke_bytes, 72, self.cb_domain_name)
         struct.pack_into('<I', gke_bytes, 76, self.cb_forest_name)
         
-        # Écrire les champs variables
+        # Write variable fields
         cur_index = 80
         
         # KDFAlgorithm
@@ -219,18 +219,18 @@ class GroupKeyEnvelope:
     
     def to_base64_string(self) -> str:
         """
-        Retourne la représentation Base64 de l'enveloppe.
-        
+        Return the Base64 representation of the envelope.
+
         Returns:
-            String Base64
+            Base64 string
         """
         import base64
         return base64.b64encode(self.serialize()).decode('utf-8')
     
     def __str__(self) -> str:
-        """Retourne la représentation string de l'objet."""
+        """Return the string representation of the object."""
         return f"GroupKeyEnvelope(version={self.version}, l0={self.l0_index}, l1={self.l1_index}, l2={self.l2_index})"
     
     def __repr__(self) -> str:
-        """Retourne la représentation officielle de l'objet."""
+        """Return the official representation of the object."""
         return f"GroupKeyEnvelope(version={self.version}, root_key_id='{self.root_key_identifier}')"

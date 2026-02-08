@@ -1,5 +1,5 @@
 """
-Utilitaires pour les opérations LDAP avec Active Directory.
+Utilities for LDAP operations with Active Directory.
 """
 
 import logging
@@ -40,7 +40,7 @@ class LdapConnection:
             ccache: Kerberos ccache file for Pass-the-Ticket
             use_kerberos: Force Kerberos usage
         """
-        # Normaliser le domaine en minuscules (insensible à la casse)
+        # Normalize the domain to lowercase (case-insensitive)
         self.domain = domain.lower() if domain else domain
         self.username = username
         self.password = password
@@ -72,7 +72,7 @@ class LdapConnection:
             port = 636 if self.use_ssl else 389
             server_uri = f"{protocol}://{target}:{port}"
             
-            logger.info(f"Connexion à {server_uri}...")
+            logger.info(f"Connecting to {server_uri}...")
             
             self.conn = ldap.initialize(server_uri)
             self.conn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
@@ -84,21 +84,21 @@ class LdapConnection:
             
             if self.username and self.password:
                 bind_dn = self._format_bind_dn(self.username)
-                logger.info(f"Authentification avec {bind_dn}...")
+                logger.info(f"Authenticating with {bind_dn}...")
                 self.conn.simple_bind_s(bind_dn, self.password)
-                logger.info("Authentification réussie")
+                logger.info("Authentication successful")
             else:
-                logger.info("Connexion anonyme...")
+                logger.info("Anonymous connection...")
                 self.conn.simple_bind_s("", "")
                 
         except ldap.INVALID_CREDENTIALS:
-            logger.error("Credentials invalides")
-            raise Exception("Authentification échouée: credentials invalides")
+            logger.error("Invalid credentials")
+            raise Exception("Authentication failed: invalid credentials")
         except ldap.SERVER_DOWN:
-            logger.error(f"Impossible de joindre le serveur {target}")
-            raise Exception(f"Serveur LDAP injoignable: {target}")
+            logger.error(f"Unable to reach server {target}")
+            raise Exception(f"LDAP server unreachable: {target}")
         except Exception as ex:
-            logger.error(f"Erreur de connexion LDAP: {ex}")
+            logger.error(f"LDAP connection error: {ex}")
             raise
     
     def _connect_advanced(self):
@@ -177,13 +177,13 @@ class LdapConnection:
             
     def _format_bind_dn(self, username: str) -> str:
         """
-        Formate le DN de bind selon le format fourni.
-        
+        Format the bind DN according to the provided format.
+
         Args:
-            username: Nom d'utilisateur
-            
+            username: Username
+
         Returns:
-            DN formaté
+            Formatted DN
         """
         if '@' in username:
             return username
@@ -221,47 +221,47 @@ class LdapConnection:
 
 class LdapUtils:
     """
-    Classe utilitaire pour les opérations LDAP avec Active Directory.
+    Utility class for LDAP operations with Active Directory.
     """
     
-    # Variable globale pour stocker la connexion courante
+    # Global variable to store the current connection
     _current_connection: Optional[LdapConnection] = None
     
     @staticmethod
     def set_connection(connection: LdapConnection):
         """
-        Définit la connexion LDAP à utiliser pour toutes les opérations.
-        
+        Set the LDAP connection to use for all operations.
+
         Args:
-            connection: Instance de LdapConnection
+            connection: LdapConnection instance
         """
         LdapUtils._current_connection = connection
         
     @staticmethod
     def get_connection() -> Optional[LdapConnection]:
         """
-        Retourne la connexion LDAP courante.
-        
+        Return the current LDAP connection.
+
         Returns:
-            Instance de LdapConnection ou None
+            LdapConnection instance or None
         """
         return LdapUtils._current_connection
     
     @staticmethod
     def find_in_config_partition(domain_fqdn: str, ldap_filter: str, attributes: List[str]) -> List[Dict[str, Any]]:
         """
-        Recherche dans la partition de configuration.
-        
+        Search in the configuration partition.
+
         Args:
-            domain_fqdn: FQDN du domaine
-            ldap_filter: Filtre LDAP
-            attributes: Liste des attributs à récupérer
-            
+            domain_fqdn: Domain FQDN
+            ldap_filter: LDAP filter
+            attributes: List of attributes to retrieve
+
         Returns:
-            Liste des résultats de recherche
-            
+            List of search results
+
         Raises:
-            Exception: Si la recherche échoue
+            Exception: If the search fails
         """
         config_naming_context = LdapUtils._get_config_naming_context(domain_fqdn)
         return LdapUtils._perform_ldap_search(domain_fqdn, config_naming_context, ldap_filter, attributes)
@@ -269,18 +269,18 @@ class LdapUtils:
     @staticmethod
     def find_in_domain(domain_fqdn: str, ldap_filter: str, attributes: List[str]) -> List[Dict[str, Any]]:
         """
-        Recherche dans le domaine.
-        
+        Search in the domain.
+
         Args:
-            domain_fqdn: FQDN du domaine
-            ldap_filter: Filtre LDAP
-            attributes: Liste des attributs à récupérer
-            
+            domain_fqdn: Domain FQDN
+            ldap_filter: LDAP filter
+            attributes: List of attributes to retrieve
+
         Returns:
-            Liste des résultats de recherche
-            
+            List of search results
+
         Raises:
-            Exception: Si la recherche échoue
+            Exception: If the search fails
         """
         default_naming_context = LdapUtils._get_default_naming_context(domain_fqdn)
         return LdapUtils._perform_ldap_search(domain_fqdn, default_naming_context, ldap_filter, attributes)
@@ -288,13 +288,13 @@ class LdapUtils:
     @staticmethod
     def get_root_dse(domain_fqdn: str = None) -> Dict[str, Any]:
         """
-        Récupère les informations RootDSE.
-        
+        Retrieve the RootDSE information.
+
         Args:
-            domain_fqdn: FQDN du domaine (optionnel si une connexion est active)
-            
+            domain_fqdn: Domain FQDN (optional if a connection is active)
+
         Returns:
-            Dictionnaire contenant les informations RootDSE
+            Dictionary containing the RootDSE information
         """
         try:
             conn_obj = LdapUtils._current_connection
@@ -306,24 +306,28 @@ class LdapUtils:
                 # Check if using impacket (marked as _is_ldap3 for compatibility)
                 if hasattr(conn_obj, '_is_ldap3') and conn_obj._is_ldap3:
                     # Use impacket LDAP to get RootDSE
+                    from impacket.ldap import ldapasn1 as ldapasn1_impacket
                     search_results = conn_obj.conn.search(
                         searchFilter='(objectClass=*)',
                         attributes=['*'],
                         searchBase='',
                         scope=0  # BASE scope
                     )
-                    
-                    if search_results and len(search_results) > 0:
-                        item = search_results[0]
-                        root_dse = {}
-                        if isinstance(item, dict) and 'attributes' in item:
-                            for attr_item in item['attributes']:
-                                if isinstance(attr_item, tuple) and len(attr_item) >= 2:
-                                    attr_name = attr_item[0]
-                                    attr_values = attr_item[1]
-                                    if not isinstance(attr_values, list):
-                                        attr_values = [attr_values]
-                                    root_dse[attr_name] = attr_values
+
+                    root_dse = {}
+                    if search_results:
+                        for item in search_results:
+                            if not isinstance(item, ldapasn1_impacket.SearchResultEntry):
+                                continue
+                            for attribute in item['attributes']:
+                                attr_name = str(attribute['type'])
+                                attr_values = []
+                                for val in attribute['vals']:
+                                    attr_values.append(val.asOctets())
+                                root_dse[attr_name] = attr_values
+                            break  # Only need first entry
+
+                    if root_dse:
                         conn_obj._root_dse_cache = root_dse
                         return root_dse
                     else:
@@ -334,10 +338,10 @@ class LdapUtils:
                         conn_obj._root_dse_cache = result[0][1]
                         return conn_obj._root_dse_cache
                     else:
-                        raise Exception("Impossible de récupérer les informations RootDSE")
+                        raise Exception("Unable to retrieve RootDSE information")
             else:
                 if not domain_fqdn:
-                    raise ValueError("domain_fqdn requis si aucune connexion active")
+                    raise ValueError("domain_fqdn required if no active connection")
                     
                 domain_escaped = ldap.filter.escape_filter_chars(domain_fqdn)
                 server_uri = f"ldap://{domain_escaped}"
@@ -352,19 +356,19 @@ class LdapUtils:
                 if result and len(result) > 0:
                     return result[0][1]
                 else:
-                    raise Exception("Impossible de récupérer les informations RootDSE")
+                    raise Exception("Unable to retrieve RootDSE information")
                 
         except Exception as ex:
-            logger.error(f"Erreur lors de la récupération RootDSE: {ex}")
+            logger.error(f"Error retrieving RootDSE: {ex}")
             raise
     
     @staticmethod
     def get_current_domain() -> str:
         """
-        Détermine le domaine actuel en utilisant les informations système ou la connexion active.
-        
+        Determine the current domain using system information or the active connection.
+
         Returns:
-            Nom du domaine actuel (normalisé en minuscules)
+            Current domain name (normalized to lowercase)
         """
         try:
             conn_obj = LdapUtils._current_connection
@@ -379,29 +383,29 @@ class LdapUtils:
             return hostname.lower() if hostname else hostname
             
         except Exception as ex:
-            logger.warning(f"Impossible de déterminer le domaine actuel: {ex}")
+            logger.warning(f"Unable to determine the current domain: {ex}")
             return "localhost"
     
     @staticmethod
     def get_current_forest() -> str:
         """
-        Détermine la forêt actuelle.
-        
+        Determine the current forest.
+
         Returns:
-            Nom de la forêt actuelle
+            Current forest name
         """
         return LdapUtils.get_current_domain()
     
     @staticmethod
     def _get_default_naming_context(domain_name: str) -> str:
         """
-        Récupère le contexte de dénomination par défaut.
-        
+        Retrieve the default naming context.
+
         Args:
-            domain_name: Nom du domaine
-            
+            domain_name: Domain name
+
         Returns:
-            Contexte de dénomination par défaut
+            Default naming context
         """
         root_dse = LdapUtils.get_root_dse(domain_name)
         
@@ -420,13 +424,13 @@ class LdapUtils:
     @staticmethod
     def _get_config_naming_context(domain_name: str) -> str:
         """
-        Récupère le contexte de dénomination de configuration.
-        
+        Retrieve the configuration naming context.
+
         Args:
-            domain_name: Nom du domaine
-            
+            domain_name: Domain name
+
         Returns:
-            Contexte de dénomination de configuration
+            Configuration naming context
         """
         root_dse = LdapUtils.get_root_dse(domain_name)
         
@@ -458,41 +462,39 @@ class LdapUtils:
             List of search results in python-ldap compatible format
         """
         try:
+            from impacket.ldap import ldapasn1 as ldapasn1_impacket
+
             # Perform search with impacket
             search_results = conn.search(
                 searchFilter=ldap_filter,
                 attributes=attributes,
                 searchBase=search_base
             )
-            
-            # Convert impacket results to python-ldap format
+
+            # Convert impacket ASN1 results to python-ldap compatible format
             results = []
-            
+
             if search_results:
                 for item in search_results:
-                    if isinstance(item, dict) and 'attributes' in item:
-                        # impacket format: item['attributes'] is a list of tuples (name, [values])
-                        attrs = {}
-                        for attr_item in item['attributes']:
-                            if isinstance(attr_item, tuple) and len(attr_item) >= 2:
-                                attr_name = attr_item[0]
-                                attr_values = attr_item[1]
-                                
-                                # Normalize attribute values
-                                if not isinstance(attr_values, list):
-                                    attr_values = [attr_values]
-                                
-                                attrs[attr_name] = attr_values
-                        
-                        if attrs:
-                            results.append(attrs)
-            
+                    if not isinstance(item, ldapasn1_impacket.SearchResultEntry):
+                        continue
+                    attrs = {}
+                    for attribute in item['attributes']:
+                        attr_name = str(attribute['type'])
+                        attr_values = []
+                        for val in attribute['vals']:
+                            attr_values.append(val.asOctets())
+                        attrs[attr_name] = attr_values
+
+                    if attrs:
+                        results.append(attrs)
+
             if not results:
                 logger.warning(f"No results found with LDAP filter: {ldap_filter}")
                 return []
-            
+
             return results
-            
+
         except Exception as ex:
             logger.error(f"Error during impacket LDAP search in {search_base}: {ex}")
             raise
@@ -500,19 +502,19 @@ class LdapUtils:
     @staticmethod
     def _perform_ldap_search(domain_fqdn: str, search_base: str, ldap_filter: str, attributes: List[str]) -> List[Dict[str, Any]]:
         """
-        Effectue une recherche LDAP.
-        
+        Perform an LDAP search.
+
         Args:
-            domain_fqdn: FQDN du domaine
-            search_base: Base de recherche
-            ldap_filter: Filtre LDAP
-            attributes: Liste des attributs à récupérer
-            
+            domain_fqdn: Domain FQDN
+            search_base: Search base
+            ldap_filter: LDAP filter
+            attributes: List of attributes to retrieve
+
         Returns:
-            Liste des résultats de recherche
-            
+            List of search results
+
         Raises:
-            Exception: Si la recherche échoue
+            Exception: If the search fails
         """
         try:
             conn_obj = LdapUtils._current_connection
@@ -565,21 +567,21 @@ class LdapUtils:
                         break
                         
                 except ldap.SIZELIMIT_EXCEEDED:
-                    logger.warning("Limite de taille LDAP atteinte")
+                    logger.warning("LDAP size limit exceeded")
                     break
                 except Exception as ex:
-                    logger.error(f"Erreur lors de la recherche LDAP: {ex}")
+                    logger.error(f"Error during LDAP search: {ex}")
                     break
             
             if should_close:
                 conn.unbind()
             
             if not results:
-                logger.warning(f"Aucun résultat trouvé avec le filtre LDAP: {ldap_filter}")
+                logger.warning(f"No results found with LDAP filter: {ldap_filter}")
                 return []
             
             return results
             
         except Exception as ex:
-            logger.error(f"Erreur lors de la recherche LDAP dans {search_base}: {ex}")
+            logger.error(f"Error during LDAP search in {search_base}: {ex}")
             raise

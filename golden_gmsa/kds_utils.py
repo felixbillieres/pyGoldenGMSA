@@ -1,5 +1,5 @@
 """
-Utilitaires pour les opérations KDS (Key Distribution Service).
+Utilities for KDS (Key Distribution Service) operations.
 """
 
 import struct
@@ -10,19 +10,19 @@ from .config import KEY_CYCLE_DURATION
 
 class KdsUtils:
     """
-    Classe utilitaire pour les opérations KDS.
+    Utility class for KDS operations.
     """
     
     @staticmethod
     def get_interval_id(timestamp: int) -> List[int]:
         """
-        Calcule les identifiants d'intervalle pour un timestamp donné.
-        
+        Computes the interval identifiers for a given timestamp.
+
         Args:
-            timestamp: Timestamp en nanosecondes
-            
+            timestamp: Timestamp in nanoseconds
+
         Returns:
-            Liste contenant [L0KeyID, L1KeyID, L2KeyID]
+            List containing [L0KeyID, L1KeyID, L2KeyID]
         """
         L1_KEY_ITERATION = 32
         L2_KEY_ITERATION = 32
@@ -36,20 +36,20 @@ class KdsUtils:
     @staticmethod
     def get_current_interval_id(kds_key_cycle_duration: int = KEY_CYCLE_DURATION, some_flag: int = 0) -> tuple:
         """
-        Calcule les identifiants d'intervalle actuels.
-        
+        Computes the current interval identifiers.
+
         Args:
-            kds_key_cycle_duration: Durée du cycle de clé KDS
-            some_flag: Flag optionnel pour ajuster le temps
-            
+            kds_key_cycle_duration: KDS key cycle duration
+            some_flag: Optional flag to adjust the time
+
         Returns:
-            Tuple contenant (l0_key_id, l1_key_id, l2_key_id)
+            Tuple containing (l0_key_id, l1_key_id, l2_key_id)
         """
-        # Convertir le temps actuel en nanosecondes (équivalent à DateTime.Now.ToFileTimeUtc())
+        # Convert the current time to nanoseconds (equivalent to DateTime.Now.ToFileTimeUtc())
         current_time = int(time.time() * 10000000) + 116444736000000000
         
         if some_flag != 0:
-            current_time += 3000000000  # Ajouter 5 minutes
+            current_time += 3000000000  # Add 5 minutes
         
         temp = current_time // kds_key_cycle_duration
         l0_key_id = temp // 1024
@@ -62,31 +62,31 @@ class KdsUtils:
     def get_interval_start_time(kds_key_cycle_duration: int, l0_key_id: int, 
                               l1_key_id: int, l2_key_id: int) -> int:
         """
-        Calcule le temps de début de l'intervalle.
-        
+        Computes the interval start time.
+
         Args:
-            kds_key_cycle_duration: Durée du cycle de clé KDS
-            l0_key_id: Identifiant de clé L0
-            l1_key_id: Identifiant de clé L1
-            l2_key_id: Identifiant de clé L2
-            
+            kds_key_cycle_duration: KDS key cycle duration
+            l0_key_id: L0 key identifier
+            l1_key_id: L1 key identifier
+            l2_key_id: L2 key identifier
+
         Returns:
-            Timestamp de début de l'intervalle
+            Interval start timestamp
         """
         return kds_key_cycle_duration * (l2_key_id + 32 * (l1_key_id + 32 * l0_key_id))
     
     @staticmethod
     def parse_sid_key_result(gke, gke_size: int, msds_managed_password_id: bytes = None) -> dict:
         """
-        Parse le résultat de la clé SID (équivalent à ParseSIDKeyResult du code C#).
-        
+        Parses the SID key result (equivalent to ParseSIDKeyResult from the C# code).
+
         Args:
             gke: Group Key Envelope
-            gke_size: Taille du GKE
-            msds_managed_password_id: Identifiant de mot de passe géré
-            
+            gke_size: Size of the GKE
+            msds_managed_password_id: Managed password identifier
+
         Returns:
-            Dictionnaire contenant les clés calculées
+            Dictionary containing the computed keys
         """
         from .msds_managed_password_id import MsdsManagedPasswordId
         

@@ -1,5 +1,5 @@
 """
-Module pour la gestion des clés racine KDS (Key Distribution Service).
+Module for managing KDS (Key Distribution Service) root keys.
 """
 
 import logging
@@ -13,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 class RootKey:
     """
-    Classe représentant une clé racine KDS (Key Distribution Service).
+    Class representing a KDS (Key Distribution Service) root key.
     """
     
     def __init__(self, search_result: dict = None, file_path: str = None, root_key_bytes: bytes = None):
         """
-        Initialise une instance de RootKey.
-        
+        Initialize a RootKey instance.
+
         Args:
-            search_result: Résultat de recherche LDAP
-            file_path: Chemin vers un fichier de clé racine
-            root_key_bytes: Données binaires de la clé racine
+            search_result: LDAP search result
+            file_path: Path to a root key file
+            root_key_bytes: Binary data of the root key
         """
         if search_result is not None:
             self._init_from_search_result(search_result)
@@ -31,13 +31,13 @@ class RootKey:
             self._init_from_file(file_path)
         elif root_key_bytes is not None:
             if not root_key_bytes:
-                raise ValueError("root_key_bytes ne peut pas être une chaîne vide")
+                raise ValueError("root_key_bytes cannot be an empty byte string")
             self._init_from_bytes(root_key_bytes)
         else:
-            raise ValueError("Un paramètre doit être fourni (search_result, file_path, ou root_key_bytes)")
+            raise ValueError("A parameter must be provided (search_result, file_path, or root_key_bytes)")
     
     def _init_from_search_result(self, search_result: dict):
-        """Initialise à partir d'un résultat de recherche LDAP."""
+        """Initialize from an LDAP search result."""
         self.ms_kds_version = int(search_result['msKds-Version'][0])
         self.cn = search_result['cn'][0].decode('utf-8')
         self.prob_reserved = 0
@@ -65,16 +65,16 @@ class RootKey:
         self.kds_root_key_data = search_result['msKds-RootKeyData'][0]
     
     def _init_from_file(self, file_path: str):
-        """Initialise à partir d'un fichier."""
+        """Initialize from a file."""
         import os
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Fichier non trouvé: {file_path}")
+            raise FileNotFoundError(f"File not found: {file_path}")
         
         with open(file_path, 'r') as f:
             lines = f.readlines()
         
         if len(lines) < 12:
-            raise ValueError("Fichier de clé racine invalide")
+            raise ValueError("Invalid root key file")
         
         self.ms_kds_version = int(lines[0].strip())
         self.cn = lines[1].strip()
@@ -105,22 +105,24 @@ class RootKey:
         self.kds_root_key_data = base64.b64decode(lines[11].strip())
     
     def _init_from_bytes(self, root_key_bytes: bytes):
-        """Initialise à partir de données binaires."""
+        """Initialize from binary data."""
         track_size = 32
         
-        # Lire les premiers champs
+        # Read the first fields
         self.ms_kds_version = struct.unpack('<I', root_key_bytes[0:4])[0]
-        self.cn = '-'.join([cn_bytes[:4][::-1].hex(), cn_bytes[4:6][::-1].hex(), cn_bytes[6:8][::-1].hex(), cn_bytes[8:10].hex(), cn_bytes[10:].hex()])  # GUID en bytes
+        # Extract the GUID (16 bytes) after ms_kds_version
+        cn_bytes = root_key_bytes[4:20]  # GUID is 16 bytes
+        self.cn = '-'.join([cn_bytes[:4][::-1].hex(), cn_bytes[4:6][::-1].hex(), cn_bytes[6:8][::-1].hex(), cn_bytes[8:10].hex(), cn_bytes[10:].hex()])  # GUID as bytes
         self.prob_reserved = struct.unpack('<I', root_key_bytes[20:24])[0]
         self.ms_kds_version2 = struct.unpack('<I', root_key_bytes[24:28])[0]
         self.prob_reserved2 = struct.unpack('<I', root_key_bytes[28:32])[0]
         
-        # Lire msKdsKDFAlgorithmID
+        # Read msKdsKDFAlgorithmID
         ms_kdf_algorithm_id_size = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         self.ms_kds_kdf_algorithm_id = root_key_bytes[track_size+4:track_size+4+ms_kdf_algorithm_id_size].decode('utf-16le')
         track_size += ms_kdf_algorithm_id_size + 4
         
-        # Lire KDFParamSize
+        # Read KDFParamSize
         self.kdf_param_size = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         if self.kdf_param_size > 0:
             self.ms_kds_kdf_param = root_key_bytes[track_size+4:track_size+4+self.kdf_param_size]
@@ -132,7 +134,7 @@ class RootKey:
         self.prob_reserved3 = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         track_size += 4
         
-        # Lire kdsSecretAgreementAlgorithmID
+        # Read kdsSecretAgreementAlgorithmID
         kds_secret_agreement_algorithm_id_size = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         self.kds_secret_agreement_algorithm_id = root_key_bytes[track_size+4:track_size+4+kds_secret_agreement_algorithm_id_size].decode('utf-16le')
         track_size += kds_secret_agreement_algorithm_id_size + 4
@@ -145,7 +147,7 @@ class RootKey:
             self.kds_secret_agreement_param = None
             track_size += 4
         
-        # Lire les autres champs
+        # Read the other fields
         self.private_key_length = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         self.public_key_length = struct.unpack('<I', root_key_bytes[track_size+4:track_size+8])[0]
         self.prob_reserved4 = struct.unpack('<I', root_key_bytes[track_size+8:track_size+12])[0]
@@ -155,12 +157,12 @@ class RootKey:
         self.flag2 = struct.unpack('<Q', root_key_bytes[track_size+28:track_size+36])[0]
         track_size += 36
         
-        # Lire kdsDomainID
+        # Read kdsDomainID
         kds_domain_id_size = struct.unpack('<I', root_key_bytes[track_size:track_size+4])[0]
         self.kds_domain_id = root_key_bytes[track_size+4:track_size+4+kds_domain_id_size].decode('utf-16le')
         track_size += kds_domain_id_size + 4
         
-        # Lire les timestamps
+        # Read the timestamps
         self.kds_create_time = struct.unpack('<Q', root_key_bytes[track_size:track_size+8])[0]
         self.kds_use_start_time = struct.unpack('<Q', root_key_bytes[track_size+8:track_size+16])[0]
         self.prob_reserved7 = struct.unpack('<Q', root_key_bytes[track_size+16:track_size+24])[0]
@@ -174,14 +176,14 @@ class RootKey:
     @staticmethod
     def get_root_key_by_guid(forest_name: str, root_key_id: str) -> Optional['RootKey']:
         """
-        Récupère une clé racine par son GUID.
-        
+        Retrieve a root key by its GUID.
+
         Args:
-            forest_name: Nom de la forêt
-            root_key_id: GUID de la clé racine
-            
+            forest_name: Name of the forest
+            root_key_id: GUID of the root key
+
         Returns:
-            Instance de RootKey ou None si non trouvée
+            RootKey instance or None if not found
         """
         try:
             config_naming_context = LdapUtils._get_config_naming_context(forest_name)
@@ -195,19 +197,19 @@ class RootKey:
             return RootKey(search_result=results[0])
             
         except Exception as ex:
-            logger.error(f"Erreur lors de la récupération de la clé racine {root_key_id}: {ex}")
+            logger.error(f"Error retrieving root key {root_key_id}: {ex}")
             return None
     
     @staticmethod
     def get_all_root_keys(forest_name: str) -> Iterator['RootKey']:
         """
-        Récupère toutes les clés racine de la forêt.
-        
+        Retrieve all root keys from the forest.
+
         Args:
-            forest_name: Nom de la forêt
-            
+            forest_name: Name of the forest
+
         Yields:
-            Instances de RootKey
+            RootKey instances
         """
         try:
             config_naming_context = LdapUtils._get_config_naming_context(forest_name)
@@ -223,7 +225,7 @@ class RootKey:
                 try:
                     root_key = RootKey(search_result=result)
                 except Exception as ex:
-                    dn = result.get('distinguishedName', [b'Inconnu'])[0]
+                    dn = result.get('distinguishedName', [b'Unknown'])[0]
                     if isinstance(dn, bytes):
                         dn = dn.decode('utf-8', errors='ignore')
                     logger.warning(f"{dn}: {ex}")
@@ -232,19 +234,19 @@ class RootKey:
                     yield root_key
                     
         except Exception as ex:
-            logger.error(f"Erreur lors de la récupération des clés racine: {ex}")
+            logger.error(f"Error retrieving root keys: {ex}")
             return
     
     def serialize(self) -> bytes:
         """
-        Sérialise la clé racine en données binaires.
-        
+        Serialize the root key to binary data.
+
         Returns:
-            Données binaires de la clé racine
+            Binary data of the root key
         """
         track_size = 36
         
-        # Calculer la taille totale
+        # Calculate the total size
         total_size = (124 + 
                      len(self.ms_kds_kdf_algorithm_id.encode('utf-16le')) + 
                      (len(self.ms_kds_kdf_param) if self.ms_kds_kdf_param else 0) + 
@@ -255,10 +257,10 @@ class RootKey:
         
         root_key_bytes = bytearray(total_size)
         
-        # Écrire les premiers champs
+        # Write the first fields
         struct.pack_into('<I', root_key_bytes, 0, self.ms_kds_version)
         
-        # Note: GUID conversion simplifiée
+        # Note: Simplified GUID conversion
         cn_bytes = bytes.fromhex(self.cn.replace('-', ''))
         struct.pack_into('<IHH', root_key_bytes, 4, int.from_bytes(cn_bytes[:4]), int.from_bytes(cn_bytes[4:6]), int.from_bytes(cn_bytes[6:8]))
         struct.pack_into('>Q', root_key_bytes, 12, int.from_bytes(cn_bytes[8:]))
@@ -267,7 +269,7 @@ class RootKey:
         struct.pack_into('<I', root_key_bytes, 24, self.ms_kds_version2)
         struct.pack_into('<I', root_key_bytes, 28, self.prob_reserved2)
         
-        # Écrire msKdsKDFAlgorithmID
+        # Write msKdsKDFAlgorithmID
         ms_kds_kdf_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
         ms_kds_kdf_algorithm_id_length = len(ms_kds_kdf_algorithm_id_bytes)
 
@@ -276,7 +278,7 @@ class RootKey:
 
         track_size += ms_kds_kdf_algorithm_id_length
 
-        # Écrire msKdsKDFParam
+        # Write msKdsKDFParam
         struct.pack_into('<I', root_key_bytes, track_size, self.kdf_param_size)
         track_size += 4
         root_key_bytes[track_size:track_size+len(self.ms_kds_kdf_param)] = self.ms_kds_kdf_param
@@ -285,7 +287,7 @@ class RootKey:
         struct.pack_into('<I', root_key_bytes, track_size, self.prob_reserved3)
         track_size += 4
 
-        # Écrire msKdsKDFAgreementAlgorithmID
+        # Write msKdsKDFAgreementAlgorithmID
         kds_secret_agreement_algorithm_id_bytes = self.ms_kds_kdf_algorithm_id.encode('utf-16le')
         kds_secret_agreement_algorithm_id_length = len(kds_secret_agreement_algorithm_id_bytes)
 
@@ -309,7 +311,7 @@ class RootKey:
         struct.pack_into('<Q', root_key_bytes, track_size + 28, self.flag2)
         track_size += 36
 
-        # Écrire KdsDomainID
+        # Write KdsDomainID
         kds_domain_id_bytes = self.kds_domain_id.encode('utf-16le')
         kds_domain_id_length = len(kds_domain_id_bytes)
 
@@ -329,20 +331,20 @@ class RootKey:
     
     def to_base64_string(self) -> str:
         """
-        Retourne la représentation Base64 de la clé racine.
-        
+        Return the Base64 representation of the root key.
+
         Returns:
-            String Base64
+            Base64 string
         """
         import base64
         return base64.b64encode(self.serialize()).decode('utf-8')
     
     def to_string(self) -> str:
         """
-        Retourne une représentation string de la clé racine.
-        
+        Return a string representation of the root key.
+
         Returns:
-            String formatée
+            Formatted string
         """
         result = f"Guid:\t\t{self.cn}\n"
         result += f"Base64 blob:\t{self.to_base64_string()}\n"
@@ -350,9 +352,9 @@ class RootKey:
         return result
     
     def __str__(self) -> str:
-        """Retourne la représentation string de l'objet."""
+        """Return the string representation of the object."""
         return self.to_string()
     
     def __repr__(self) -> str:
-        """Retourne la représentation officielle de l'objet."""
+        """Return the official representation of the object."""
         return f"RootKey(guid='{self.cn}', version={self.ms_kds_version})"

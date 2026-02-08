@@ -1,5 +1,5 @@
 """
-Module pour la gestion des clés L0.
+Module for managing L0 keys.
 """
 
 from .root_key import RootKey
@@ -7,23 +7,22 @@ from .root_key import RootKey
 
 class L0Key(RootKey):
     """
-    Classe représentant une clé L0.
-    Cette classe hérite de RootKey et ajoute un champ L0KeyID.
+    Class representing an L0 key.
+    Inherits from RootKey and adds an L0KeyID field.
     """
-    
+
     def __init__(self, root_key: RootKey, l0_key_id: int, derived_key: bytes):
         """
-        Initialise une instance de L0Key.
-        
+        Initialize an L0Key instance.
+
         Args:
-            root_key: Clé racine de base
-            l0_key_id: Identifiant de la clé L0
-            derived_key: Clé dérivée
+            root_key: Base root key
+            l0_key_id: L0 key identifier
+            derived_key: Derived key
         """
-        # Ne pas appeler super().__init__() car nous copions manuellement tous les attributs
-        # super().__init__()  # Commenté pour éviter l'erreur
+        # Do not call super().__init__() as we manually copy all attributes
         
-        # Copier manuellement les attributs
+        # Manually copy attributes
         self.ms_kds_version = root_key.ms_kds_version
         self.cn = root_key.cn
         self.prob_reserved = 0
@@ -49,16 +48,16 @@ class L0Key(RootKey):
         self.prob_reserved7 = root_key.prob_reserved7
         self.kds_root_key_data_size = root_key.kds_root_key_data_size
         
-        # Modifier la clé racine avec la clé dérivée
+        # Replace root key data with the derived key
         self.kds_root_key_data = derived_key
         
-        # Ajouter l'identifiant L0
+        # Add the L0 identifier
         self.l0_key_id = l0_key_id
     
     def __str__(self) -> str:
-        """Retourne la représentation string de l'objet."""
+        """Return the string representation of the object."""
         return f"L0Key(l0_key_id={self.l0_key_id}, root_key_id='{self.cn}')"
     
     def __repr__(self) -> str:
-        """Retourne la représentation officielle de l'objet."""
+        """Return the official representation of the object."""
         return f"L0Key(l0_key_id={self.l0_key_id}, version={self.ms_kds_version})"

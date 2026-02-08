@@ -1,5 +1,5 @@
 """
-Module pour la génération de mots de passe GMSA.
+Module for GMSA password generation.
 """
 
 import hashlib
@@ -20,24 +20,24 @@ logger = logging.getLogger(__name__)
 
 class GmsaPassword:
     """
-    Classe pour la génération de mots de passe GMSA.
+    Class for GMSA password generation.
     """
     
     @staticmethod
     def get_password(sid: str, root_key: RootKey, pwd_id: MsdsManagedPasswordId, 
                     domain_name: str, forest_name: str) -> bytes:
         """
-        Génère le mot de passe GMSA.
-        
+        Generates the GMSA password.
+
         Args:
-            sid: SID du gMSA
-            root_key: Clé racine KDS
-            pwd_id: Identifiant de mot de passe géré
-            domain_name: Nom du domaine
-            forest_name: Nom de la forêt
-            
+            sid: SID of the gMSA
+            root_key: KDS root key
+            pwd_id: Managed password identifier
+            domain_name: Domain name
+            forest_name: Forest name
+
         Returns:
-            Mot de passe généré en bytes
+            Generated password as bytes
         """
         l0_key_id, l1_key_id, l2_key_id = KdsUtils.get_current_interval_id(
             KEY_CYCLE_DURATION, 0
@@ -69,10 +69,10 @@ class GmsaPassword:
                           l0_key_id: int, l1_key_id: int, l2_key_id: int, access_check_failed: int,
                           domain_name: str, forest_name: str) -> Tuple[GroupKeyEnvelope, int]:
         """
-        Obtient la clé SID locale (équivalent à GetSidKeyLocal du code C#).
-        
+        Gets the local SID key (equivalent to GetSidKeyLocal in the C# code).
+
         Returns:
-            Tuple contenant (GroupKeyEnvelope, taille)
+            Tuple containing (GroupKeyEnvelope, size)
         """
         l0_key = GmsaPassword._compute_l0_key(root_key, l0_key_id)
         
@@ -100,28 +100,28 @@ class GmsaPassword:
     @staticmethod
     def _compute_l0_key(root_key: RootKey, l0_key_id: int) -> L0Key:
         """
-        Calcule la clé L0.
-        
+        Computes the L0 key.
+
         Returns:
-            Instance de L0Key
+            L0Key instance
         """
-        # Convertir le GUID en bytes au format Windows (.NET Guid.ToByteArray() format)
-        # .NET Guid.ToByteArray() utilise un format "mixed-endian" qui correspond à uuid.UUID().bytes_le
+        # Convert the GUID to bytes in Windows format (.NET Guid.ToByteArray() format)
+        # .NET Guid.ToByteArray() uses a "mixed-endian" format which corresponds to uuid.UUID().bytes_le
         try:
-            root_key_guid = uuid.UUID(root_key.cn).bytes_le  # Utiliser bytes_le pour correspondre à .NET Guid.ToByteArray()
+            root_key_guid = uuid.UUID(root_key.cn).bytes_le  # Use bytes_le to match .NET Guid.ToByteArray()
         except (ValueError, AttributeError):
-            # Si cn n'est pas un UUID valide, essayer de le parser comme string
+            # If cn is not a valid UUID, try to parse it as a string
             root_key_guid = uuid.UUID(root_key.cn.replace('-', '')).bytes_le if '-' in str(root_key.cn) else uuid.UUID(str(root_key.cn)).bytes_le
-        
-        # Générer le contexte KDF (retourne contexte et flag2)
+
+        # Generate the KDF context (returns context and flag2)
         kdf_context, kdf_context_flag = GmsaPassword._generate_kdf_context(
             root_key_guid, l0_key_id,
             0xffffffff, 0xffffffff,
             0
         )
         
-        # Générer la clé dérivée (pas de label pour L0)
-        # not_sure est une liste pour simuler ref int en C#
+        # Generate the derived key (no label for L0)
+        # not_sure is a list to simulate ref int in C#
         not_sure_ref = [kdf_context_flag]
         generate_derived_key = GmsaPassword._generate_derived_key(
             root_key.ms_kds_kdf_algorithm_id,
@@ -130,8 +130,8 @@ class GmsaPassword:
             root_key.kds_root_key_data or b"",
             root_key.kds_root_key_data_size if root_key.kds_root_key_data else 0,
             kdf_context, len(kdf_context),
-            not_sure_ref, b"", 0,  # Pas de label pour L0
-            1,  # notsure_flag = 1 pour L0
+            not_sure_ref, b"", 0,  # No label for L0
+            1,  # notsure_flag = 1 for L0
             generate_derived_key := bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT),
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
         )
@@ -143,31 +143,31 @@ class GmsaPassword:
     def _generate_l1_key(security_descriptor: bytes, sd_size: int, l0_key: L0Key,
                         l1_key_id: int) -> Tuple[bytes, Optional[bytes]]:
         """
-        Génère la clé L1.
-        
+        Generates the L1 key.
+
         Returns:
-            Tuple contenant (clé dérivée principale, clé dérivée secondaire)
+            Tuple containing (primary derived key, secondary derived key)
         """
-        # Convertir le GUID en bytes au format Windows (.NET Guid.ToByteArray() format)
+        # Convert the GUID to bytes in Windows format (.NET Guid.ToByteArray() format)
         try:
-            root_key_guid = uuid.UUID(l0_key.cn).bytes_le  # Utiliser bytes_le pour correspondre à .NET Guid.ToByteArray()
+            root_key_guid = uuid.UUID(l0_key.cn).bytes_le  # Use bytes_le to match .NET Guid.ToByteArray()
         except (ValueError, AttributeError):
             root_key_guid = uuid.UUID(l0_key.cn.replace('-', '')).bytes_le if '-' in str(l0_key.cn) else uuid.UUID(str(l0_key.cn)).bytes_le
         derived_key = bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT)
         derived_key2 = None
-        
-        # Générer le contexte KDF (retourne contexte et flag2)
+
+        # Generate the KDF context (returns context and flag2)
         kdf_context, kdf_context_flag = GmsaPassword._generate_kdf_context(
             root_key_guid, int(l0_key.l0_key_id),
             0x1f, 0xffffffff, 1
         )
-        
-        # Modifier le contexte avec le descripteur de sécurité
+
+        # Modify the context with the security descriptor
         kdf_context_modified = bytearray(len(kdf_context) + sd_size)
         kdf_context_modified[:len(kdf_context)] = kdf_context
         kdf_context_modified[len(kdf_context):] = security_descriptor
         
-        # Générer la première clé dérivée (pas de label pour L1)
+        # Generate the first derived key (no label for L1)
         not_sure_ref = [kdf_context_flag]
         derived_key = GmsaPassword._generate_derived_key(
             l0_key.ms_kds_kdf_algorithm_id,
@@ -176,26 +176,26 @@ class GmsaPassword:
             l0_key.kds_root_key_data or b"",
             64,
             kdf_context_modified, len(kdf_context_modified),
-            not_sure_ref, b"", 0,  # Pas de label pour L1
-            1,  # notsure_flag = 1 pour L1 premier appel
+            not_sure_ref, b"", 0,  # No label for L1
+            1,  # notsure_flag = 1 for L1 first call
             derived_key,
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
         )
         
-        # Générer la clé secondaire si nécessaire
+        # Generate the secondary key if needed
         if l1_key_id != 31:
             kdf_context_copy = bytearray(kdf_context)
-            # Modifier le contexte à l'index flag comme dans le code C#
+            # Modify the context at the flag index as in the C# code
             if kdf_context_flag < len(kdf_context_copy):
                 kdf_context_copy[kdf_context_flag] = (kdf_context_copy[kdf_context_flag] - 1) & 0xFF
             generated_derived_key = derived_key.copy()
-            
+
             not_sure_ref2 = [kdf_context_flag]
             derived_key = GmsaPassword._generate_derived_key(
                 l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
-                not_sure_ref2, b"", 0,  # Pas de label
+                not_sure_ref2, b"", 0,  # No label
                 31 - l1_key_id,  # notsure_flag = 31 - l1_key_id
                 derived_key,
                 KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
@@ -203,7 +203,7 @@ class GmsaPassword:
         
         if l1_key_id > 0:
             kdf_context_copy = bytearray(kdf_context)
-            # Modifier le contexte à l'index flag comme dans le code C#
+            # Modify the context at the flag index as in the C# code
             if kdf_context_flag < len(kdf_context_copy):
                 kdf_context_copy[kdf_context_flag] = (l1_key_id - 1) & 0xFF
             derived_key2 = bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT)
@@ -214,7 +214,7 @@ class GmsaPassword:
                 l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
                 l0_key.kdf_param_size, generated_derived_key,
                 64, kdf_context_copy, len(kdf_context_copy),
-                not_sure_ref3, b"", 0,  # Pas de label
+                not_sure_ref3, b"", 0,  # No label
                 1,  # notsure_flag = 1
                 derived_key2,
                 KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
@@ -225,19 +225,19 @@ class GmsaPassword:
     @staticmethod
     def _generate_l2_key(l0_key: L0Key, l1_derived_key: bytes, l1_key_id: int, l2_key_id: int) -> bytes:
         """
-        Génère la clé L2.
-        
+        Generates the L2 key.
+
         Returns:
-            Clé L2 générée
+            Generated L2 key
         """
-        # Convertir le GUID en bytes au format Windows (.NET Guid.ToByteArray() format)
+        # Convert the GUID to bytes in Windows format (.NET Guid.ToByteArray() format)
         try:
-            root_key_guid = uuid.UUID(l0_key.cn).bytes_le  # Utiliser bytes_le pour correspondre à .NET Guid.ToByteArray()
+            root_key_guid = uuid.UUID(l0_key.cn).bytes_le  # Use bytes_le to match .NET Guid.ToByteArray()
         except (ValueError, AttributeError):
             root_key_guid = uuid.UUID(l0_key.cn.replace('-', '')).bytes_le if '-' in str(l0_key.cn) else uuid.UUID(str(l0_key.cn)).bytes_le
         derived_key = bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT)
-        
-        # Générer le contexte KDF (retourne contexte et flag2)
+
+        # Generate the KDF context (returns context and flag2)
         kdf_context, flag_kdf_context = GmsaPassword._generate_kdf_context(
             root_key_guid, int(l0_key.l0_key_id),
             l1_key_id, 0x1f, 2
@@ -250,7 +250,7 @@ class GmsaPassword:
             l0_key.ms_kds_kdf_algorithm_id, l0_key.ms_kds_kdf_param or b"",
             l0_key.kdf_param_size, l1_derived_key,
             64, kdf_context, len(kdf_context),
-            not_sure_ref, b"", 0,  # Pas de label pour L2
+            not_sure_ref, b"", 0,  # No label for L2
             some_flag,  # notsure_flag = 32 - l2_key_id
             derived_key,
             KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
@@ -262,10 +262,10 @@ class GmsaPassword:
     def _compute_sid_private_key(l0_key: L0Key, security_descriptor: bytes, sd_size: int,
                                 l1_key_id: int, l2_key_id: int, access_check_failed: int) -> Tuple[Optional[bytes], Optional[bytes]]:
         """
-        Calcule la clé privée SID.
-        
+        Computes the SID private key.
+
         Returns:
-            Tuple contenant (clé L1, clé L2)
+            Tuple containing (L1 key, L2 key)
         """
         l1_key_first, l2_key_second = GmsaPassword._generate_l1_key(
             security_descriptor, sd_size, l0_key, l1_key_id
@@ -288,10 +288,10 @@ class GmsaPassword:
                            l2_key: Optional[bytes], l2_key_id: int, public_key: Optional[bytes], public_key_size: int,
                            domain_name: str, forest_name: str) -> Tuple[GroupKeyEnvelope, int]:
         """
-        Formate le blob de retour.
-        
+        Formats the return blob.
+
         Returns:
-            Tuple contenant (GroupKeyEnvelope, taille)
+            Tuple containing (GroupKeyEnvelope, size)
         """
         gke = GroupKeyEnvelope()
         gke.version = 1
@@ -355,16 +355,17 @@ class GmsaPassword:
     def _generate_gmsa_password(gke: GroupKeyEnvelope, gke_size: int, msds_managed_password_id: bytes,
                                sid: bytes, pwd_blob_size: int) -> bytes:
         """
-        Génère le mot de passe GMSA.
-        
+        Generates the GMSA password.
+
         Returns:
-            Mot de passe généré
+            Generated password
         """
-        label_str = "GMSA PASSWORD\x00"
-        label = label_str.encode('utf-16le')
+        # Label: "GMSA PASSWORD" with null terminator UTF-16LE (2 bytes: 0x00 0x00)
+        label_str = "GMSA PASSWORD"
+        label = label_str.encode('utf-16le') + b'\x00\x00'  # Add UTF-16LE null terminator
         pwd_blob = bytearray(pwd_blob_size)
         
-        # Parser le résultat de la clé SID
+        # Parse the SID key result
         result = KdsUtils.parse_sid_key_result(gke, gke_size, msds_managed_password_id)
         
         l1_key = result['l1_key']
@@ -374,120 +375,148 @@ class GmsaPassword:
         new_l1_key_id = result['new_l1_key_id']
         new_l2_key_id = result['new_l2_key_id']
         
-        # ClientComputeL2Key: mettre à jour les clés L1/L2 si nécessaire
+        # ClientComputeL2Key: update L1/L2 keys if needed
         if l1_key_diff > 0 or l2_key_diff > 0:
-            # Extraire le GUID de la clé racine
+            # Extract the root key GUID
             from .msds_managed_password_id import MsdsManagedPasswordId
-            # Convertir le GUID en bytes au format Windows (.NET Guid.ToByteArray() format)
+            # Convert the GUID to bytes in Windows format (.NET Guid.ToByteArray() format)
             try:
-                root_key_guid = uuid.UUID(gke.root_key_identifier).bytes_le  # Utiliser bytes_le pour correspondre à .NET Guid.ToByteArray()
+                root_key_guid = uuid.UUID(gke.root_key_identifier).bytes_le  # Use bytes_le to match .NET Guid.ToByteArray()
             except (ValueError, AttributeError):
                 root_key_guid = uuid.UUID(gke.root_key_identifier.replace('-', '')).bytes_le if '-' in str(gke.root_key_identifier) else uuid.UUID(str(gke.root_key_identifier)).bytes_le
             kdf_param = gke.kdf_parameters if gke.kdf_parameters and len(gke.kdf_parameters) > 0 else None
             
-            # Mettre à jour L1 si nécessaire
+            # Update L1 if needed
             if l1_key_diff > 0:
-                # Générer le contexte KDF pour L1
+                # Generate the KDF context for L1
                 kdf_context_l1, kdf_context_flag_l1 = GmsaPassword._generate_kdf_context(
                     root_key_guid, gke.l0_index,
                     new_l1_key_id, 0xffffffff,
                     1
                 )
                 
-                # Générer la clé dérivée pour mettre à jour L1
+                # Generate the derived key to update L1
                 not_sure_ref_l1 = [kdf_context_flag_l1]
                 l1_key = GmsaPassword._generate_derived_key(
                     gke.kdf_algorithm, kdf_param or b"",
                     len(kdf_param) if kdf_param else 0, l1_key,
                     64, kdf_context_l1, len(kdf_context_l1),
-                    not_sure_ref_l1, b"", 0,  # Pas de label
+                    not_sure_ref_l1, b"", 0,  # No label
                     l1_key_diff,  # notsure_flag = l1_key_diff
                     bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT),
                     KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
                 )
                 l1_key = bytes(l1_key)
             
-            # Mettre à jour L1 avec L2 si nécessaire (comme dans le code C#)
+            # Update L1 with L2 if needed (as in the C# code)
             if msds_managed_password_id is None or gke.l1_index <= MsdsManagedPasswordId(msds_managed_password_id).l1_index:
                 if gke.cb_l2_key > 0:
                     l1_key = l2_key
             
-            # Mettre à jour L2 si nécessaire
+            # Update L2 if needed
             if l2_key_diff > 0:
-                # Déterminer "something" comme dans le code C#
+                # Determine "something" as in the C# code
                 if msds_managed_password_id is None:
                     something = gke.l1_index
                 else:
                     msds_pwd_id = MsdsManagedPasswordId(msds_managed_password_id)
                     something = msds_pwd_id.l1_index
                 
-                # Générer le contexte KDF pour L2
+                # Generate the KDF context for L2
                 kdf_context_l2, kdf_context_flag_l2 = GmsaPassword._generate_kdf_context(
                     root_key_guid, gke.l0_index,
                     something, new_l2_key_id,
                     2
                 )
                 
-                # Initialiser l2_key si null
+                # Initialize l2_key if null
                 if l2_key is None:
                     l2_key = bytearray(KDS_ROOT_KEY_DATA_SIZE_DEFAULT)
                 else:
                     l2_key = bytearray(l2_key)
                 
-                # Générer la clé dérivée pour mettre à jour L2
+                # Generate the derived key to update L2
                 not_sure_ref_l2 = [kdf_context_flag_l2]
                 l2_key = GmsaPassword._generate_derived_key(
                     gke.kdf_algorithm, kdf_param or b"",
                     len(kdf_param) if kdf_param else 0, l1_key,
                     64, kdf_context_l2, len(kdf_context_l2),
-                    not_sure_ref_l2, b"", 0,  # Pas de label
+                    not_sure_ref_l2, b"", 0,  # No label
                     l2_key_diff,  # notsure_flag = l2_key_diff
                     l2_key,
                     KDS_ROOT_KEY_DATA_SIZE_DEFAULT, 0
                 )
                 l2_key = bytes(l2_key)
         
-        # Génération finale du mot de passe (avec label "GMSA PASSWORD\x0")
-        flag_ref = [0]  # flag est initialisé à 0 dans le code C#
+        # Final password generation (with label "GMSA PASSWORD\x0")
+        flag_ref = [0]  # flag is initialized to 0 in the C# code
         pwd_blob = GmsaPassword._generate_derived_key(
             gke.kdf_algorithm, gke.kdf_parameters or b"",
             len(gke.kdf_parameters) if gke.kdf_parameters else 0, l2_key if l2_key else l1_key,
             64, sid, len(sid),
-            flag_ref, label, len(label),  # Label "GMSA PASSWORD\x0" pour le password blob final
-            1,  # notsure_flag = 1 pour le password blob final
+            flag_ref, label, len(label),  # Label "GMSA PASSWORD\x0" for the final password blob
+            1,  # notsure_flag = 1 for the final password blob
             pwd_blob, pwd_blob_size, 0
         )
         
         return bytes(pwd_blob)
     
     @staticmethod
+    def _parse_hash_from_kdf_param(kdf_param: bytes):
+        """Parse the hash algorithm name from the KDF param blob."""
+        if kdf_param and len(kdf_param) > 0:
+            try:
+                for name, func, size in [
+                    ('SHA512', hashlib.sha512, 64),
+                    ('SHA384', hashlib.sha384, 48),
+                    ('SHA256', hashlib.sha256, 32),
+                    ('SHA1', hashlib.sha1, 20),
+                ]:
+                    if name.encode('utf-16le') in kdf_param:
+                        return func, size
+            except Exception:
+                pass
+        return hashlib.sha256, 32
+
+    @staticmethod
     def _generate_kdf_context(root_key_guid: bytes, context_init: int, context_init2: int,
                              context_init3: int, flag: int) -> Tuple[bytes, int]:
         """
-        Génère un contexte KDF (réplique de kdscli.dll GenerateKDFContext).
-        
+        Generates a KDF context (replica of kdscli.dll GenerateKDFContext).
+
         Args:
-            root_key_guid: GUID de la clé racine (16 bytes)
-            context_init: Valeur d'initialisation du contexte 1
-            context_init2: Valeur d'initialisation du contexte 2 (long)
-            context_init3: Valeur d'initialisation du contexte 3 (long)
-            flag: Flag d'initialisation
-        
+            root_key_guid: Root key GUID (16 bytes)
+            context_init: Context initialization value 1
+            context_init2: Context initialization value 2 (long)
+            context_init3: Context initialization value 3 (long)
+            flag: Initialization flag
+
         Returns:
-            Tuple contenant (contexte KDF, flag2)
+            Tuple containing (KDF context, flag2)
         """
-        # Répliquer exactement ce que fait kdscli.dll GenerateKDFContext
-        # Le contexte est construit comme: GUID || context_init || context_init2 || context_init3 || flag
+        # MS-GKDI spec: the context is built as:
+        # RKID(16) || L0_int32_LE(4) || L1_int32_LE(4) || L2_int32_LE(4) = 28 bytes
+        # ALL integers are 32-bit little-endian (not int64!)
         context_data = bytearray()
-        context_data.extend(root_key_guid[:16])  # GUID (16 bytes)
-        context_data.extend(struct.pack('<I', context_init))  # int (4 bytes, little-endian)
-        context_data.extend(struct.pack('<Q', context_init2 & 0xFFFFFFFFFFFFFFFF))  # long (8 bytes, little-endian)
-        context_data.extend(struct.pack('<Q', context_init3 & 0xFFFFFFFFFFFFFFFF))  # long (8 bytes, little-endian)
-        context_data.extend(struct.pack('<I', flag))  # int (4 bytes, little-endian)
-        
-        # flag2 est l'index dans le contexte où se trouve context_init (après le GUID)
-        flag2 = 16  # Position après le GUID
-        
+        context_data.extend(root_key_guid[:16])  # RKID (16 bytes)
+        context_data.extend(struct.pack('<I', context_init & 0xFFFFFFFF))  # int32 LE (4 bytes)
+        context_data.extend(struct.pack('<I', context_init2 & 0xFFFFFFFF))  # int32 LE (4 bytes)
+        context_data.extend(struct.pack('<I', context_init3 & 0xFFFFFFFF))  # int32 LE (4 bytes)
+        # Total: 28 bytes
+
+        # flag2 = byte offset in the context of the counter to decrement between iterations
+        # flag=0 (L0): points to contextInit (int32 at offset 16)
+        # flag=1 (L1): points to contextInit2 (int32 at offset 20)
+        # flag=2 (L2): points to contextInit3 (int32 at offset 24)
+        if flag == 0:
+            flag2 = 16
+        elif flag == 1:
+            flag2 = 20
+        elif flag == 2:
+            flag2 = 24
+        else:
+            flag2 = 16
+
         return bytes(context_data), flag2
     
     @staticmethod
@@ -497,93 +526,90 @@ class GmsaPassword:
                              notsure_flag: int, pb_derived_key: bytearray, cb_derived_key: int,
                              always_zero: int) -> bytearray:
         """
-        Génère une clé dérivée en utilisant SP800-108 CTR HMAC (réplique de kdscli.dll GenerateDerivedKey).
-        
+        Generates a derived key using SP800-108 CTR HMAC (replica of kdscli.dll GenerateDerivedKey).
+
         Args:
-            kdf_algorithm_id: Identifiant de l'algorithme KDF (ex: "SP800_108_CTR_HMAC")
-            kdf_param: Paramètres KDF optionnels
-            kdf_param_size: Taille des paramètres KDF
-            pb_secret: Clé secrète d'entrée
-            cb_secret: Taille de la clé secrète
-            context: Contexte KDF
-            context_size: Taille du contexte
-            not_sure: Liste avec un seul élément (référence, peut être modifié) [flag]
-            label: Label KDF (ex: "GMSA PASSWORD" + null byte en UTF-16LE)
-            label_size: Taille du label
-            notsure_flag: Nombre d'itérations à faire (c'est le vrai paramètre d'itération!)
-            pb_derived_key: Buffer de sortie pour la clé dérivée
-            cb_derived_key: Taille désirée de la clé dérivée
-            always_zero: Toujours zéro
-        
+            kdf_algorithm_id: KDF algorithm identifier (e.g., "SP800_108_CTR_HMAC")
+            kdf_param: Optional KDF parameters
+            kdf_param_size: Size of KDF parameters
+            pb_secret: Input secret key
+            cb_secret: Size of the secret key
+            context: KDF context
+            context_size: Size of the context
+            not_sure: List with a single element (reference, can be modified) [flag]
+            label: KDF label (e.g., "GMSA PASSWORD" + null byte in UTF-16LE)
+            label_size: Size of the label
+            notsure_flag: Number of iterations to perform (this is the actual iteration parameter!)
+            pb_derived_key: Output buffer for the derived key
+            cb_derived_key: Desired size of the derived key
+            always_zero: Always zero
+
         Returns:
-            Clé dérivée générée
+            Generated derived key
         """
         if kdf_algorithm_id == "SP800_108_CTR_HMAC":
-            # Implémentation de SP800-108 CTR HMAC selon la spécification NIST
-            # notsure_flag indique le nombre d'itérations à faire
-            # Diviser la sortie désirée en blocs de la taille du hash (32 bytes pour SHA-256)
-            hash_size = 32  # SHA-256
+            # SP800-108 CTR HMAC implementation according to the Windows kdscli.dll implementation
+            # Microsoft format: [i]_2 || Label || 0x00 || Context || [L]_2
+            # Reference: https://github.com/microsoft/referencesource/blob/master/System.Web/Security/Cryptography/SP800_108.cs
+
+            # Determine the hash algorithm from kdf_param
+            hash_func, hash_size = GmsaPassword._parse_hash_from_kdf_param(kdf_param)
             num_blocks = (cb_derived_key + hash_size - 1) // hash_size
-            
-            # Extraire la clé HMAC du secret (utiliser les premiers cb_secret bytes)
+
+            # Extract the HMAC key from the secret
             hmac_key = pb_secret[:cb_secret] if cb_secret > 0 else pb_secret
-            
-            # Extraire le label et le contexte
-            label_bytes = label[:label_size] if label_size > 0 else b""
-            context_bytes = context[:context_size] if context_size > 0 else b""
-            
-            # Construire le FixedInputData selon SP800-108 CTR HMAC
-            # Format standard SP800-108: InputBlock = Label || 0x00 || Context || Counter
-            # Mais Windows peut utiliser un format différent
-            # Testons SANS le 0x00 (Windows peut utiliser Label || Context directement)
+
+            # MS-GKDI: when the label is empty, kdscli.dll uses "KDS service\0" in UTF-16LE
             if label_size > 0:
-                # Windows peut utiliser Label || Context (sans 0x00)
-                fixed_input_data = label_bytes + context_bytes
+                label_bytes = label[:label_size]
             else:
-                fixed_input_data = context_bytes
-            
-            # Faire notsure_flag itérations (notsure_flag indique le nombre d'itérations KDF)
+                label_bytes = "KDS service\0".encode('utf-16le')
+                label_size = len(label_bytes)
+            context_bytes = context[:context_size] if context_size > 0 else b""
+
+            # notsure_flag = number of KDF iterations
+            # Each iteration uses the previous result as the new secret key
+            # and decrements the context at index not_sure[0]
             current_secret = hmac_key
-            current_context = context_bytes
-            derived_key_bytes = bytearray()
-            
-            for iteration in range(notsure_flag if notsure_flag > 0 else 1):
-                # Générer chaque bloc pour cette itération CTR
+            current_context = bytearray(context_bytes)
+
+            iterations = notsure_flag if notsure_flag > 0 else 1
+
+            iteration_derived = None
+
+            for iteration in range(iterations):
                 iteration_derived = bytearray()
-                for i in range(1, num_blocks + 1):
-                    # Construire InputBlock = FixedInputData || Counter
-                    # où Counter est l'index du bloc encodé sur 4 bytes en big-endian
-                    counter_bytes = struct.pack('>I', i)  # Big-endian 32-bit integer
-                    
-                    # Reconstruire fixed_input_data avec le contexte actuel pour cette itération
+                for i in range(num_blocks):
+                    # [i]_2: Counter 32-bit big-endian, starts at 1
+                    counter_bytes = struct.pack('>I', i + 1)
+
+                    # [L]_2: Length in BITS (32-bit big-endian)
+                    length_in_bits = cb_derived_key * 8
+                    length_bytes = struct.pack('>I', length_in_bits)
+
+                    # Format: [i] || Label || 0x00 || Context || [L]
                     if label_size > 0:
-                        input_block = label_bytes + current_context + counter_bytes
+                        input_block = counter_bytes + label_bytes + b'\x00' + bytes(current_context) + length_bytes
                     else:
-                        input_block = current_context + counter_bytes
-                    
-                    # K(i) = HMAC-SHA256(K_I, InputBlock)
-                    k_i = hmac.new(current_secret, input_block, hashlib.sha256).digest()
+                        input_block = counter_bytes + b'\x00' + bytes(current_context) + length_bytes
+
+                    k_i = hmac.new(current_secret, input_block, hash_func).digest()
                     iteration_derived.extend(k_i)
-                
-                # Pour l'itération suivante, utiliser la clé dérivée comme nouvelle clé secrète
-                if iteration < (notsure_flag if notsure_flag > 0 else 1) - 1:
-                    current_secret = iteration_derived[:cb_secret] if cb_secret > 0 else iteration_derived
-                    # Modifier le contexte à l'index not_sure[0] si possible (décrémenter)
+
+                # For the next iteration
+                if iteration < iterations - 1:
+                    current_secret = iteration_derived[:cb_secret] if cb_secret > 0 else iteration_derived[:hash_size]
                     if len(current_context) > 0 and not_sure and len(not_sure) > 0 and not_sure[0] < len(current_context):
-                        current_context = bytearray(current_context)
                         current_context[not_sure[0]] = (current_context[not_sure[0]] - 1) & 0xFF
-                        current_context = bytes(current_context)
-                else:
-                    # Dernière itération, utiliser cette clé dérivée
-                    derived_key_bytes = iteration_derived
-            
-            # Tronquer à la taille désirée
-            result = derived_key_bytes[:cb_derived_key]
+
+            if iteration_derived is None:
+                iteration_derived = bytearray(cb_derived_key)
+            result = iteration_derived[:cb_derived_key]
             pb_derived_key[:len(result)] = result
-            
+
             return pb_derived_key
         else:
-            # Fallback: utiliser HMAC simple pour autres algorithmes
+            # Fallback: use simple HMAC for other algorithms
             key_material = pb_secret[:cb_secret] if cb_secret > 0 else pb_secret
             context_bytes = context[:context_size] if context_size > 0 else b""
             hmac_key = hashlib.sha256(key_material).digest()
@@ -595,14 +621,47 @@ class GmsaPassword:
     @staticmethod
     def _sid_to_bytes(sid: str) -> bytes:
         """
-        Convertit un SID en bytes (implémentation simplifiée).
-        
+        Converts a SID to bytes in Windows binary format.
+
+        Windows SID binary format:
+        - 1 byte: Revision (always 1)
+        - 1 byte: Number of sub-authorities
+        - 6 bytes: Authority identifier (48 bits, big-endian)
+        - 4 bytes per sub-authority (32 bits, little-endian)
+
         Args:
-            sid: SID sous forme de string
-            
+            sid: SID as a string (e.g., "S-1-5-21-4163040651-2381858556-3943169962-1104")
+
         Returns:
-            SID en bytes
+            SID as bytes in Windows binary format
         """
-        # Implémentation simplifiée - dans le vrai code, ceci utiliserait ConvertStringSidToSid
-        # Pour l'instant, on encode simplement le SID en UTF-16LE
-        return sid.encode('utf-16le')
+        # Parse the SID string (format: S-1-5-21-...)
+        parts = sid.split('-')
+        if len(parts) < 3 or parts[0] != 'S':
+            raise ValueError(f"Invalid SID: {sid}")
+        
+        revision = int(parts[1])
+        num_sub_auths = len(parts) - 3  # Number of sub-authorities
+
+        # Authority identifier (48 bits, big-endian)
+        # Parts 2 to 7 form the authority identifier
+        # But generally only part 2 (5) is used
+        # and the others are sub-authorities
+        authority_value = int(parts[2])
+        
+        # Build the binary SID
+        sid_bytes = bytearray()
+        sid_bytes.append(revision)  # Revision (1 byte)
+        sid_bytes.append(num_sub_auths)  # Number of sub-authorities (1 byte)
+
+        # Authority identifier (6 bytes, big-endian)
+        # The 48 bits are stored in big-endian over 6 bytes
+        authority_bytes = struct.pack('>Q', authority_value)[2:]  # Take the last 6 bytes
+        sid_bytes.extend(authority_bytes)
+        
+        # Sub-authorities (4 bytes each, little-endian)
+        for i in range(3, len(parts)):
+            sub_auth = int(parts[i])
+            sid_bytes.extend(struct.pack('<I', sub_auth))  # Little-endian 32-bit
+        
+        return bytes(sid_bytes)

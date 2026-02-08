@@ -1,46 +1,4 @@
-# GoldenGMSA Python - Dependencies
-
-# LDAP for Active Directory communication
 python-ldap>=3.4.0
-
-# LDAP3 for advanced authentication (PTH/PTT)
-ldap3>=2.9.1
-
-# Impacket for Pass-the-Hash and Pass-the-Ticket
 impacket>=0.11.0
-
-# Cryptography for cryptographic operations
 cryptography>=3.4.8
-
-# System utilities
-psutil>=5.8.0
-
-# Parsing des arguments en ligne de commande (inclus dans Python standard)
-# argparse - inclus dans Python 3.2+
-
-# Logging (inclus dans Python standard)
-# logging - inclus dans Python 2.3+
-
-# Base64 encoding/decoding (inclus dans Python standard)
-# base64 - inclus dans Python 2.3+
-
-# Hash et HMAC (inclus dans Python standard)
-# hashlib - inclus dans Python 2.5+
-
-# Structures binaires (inclus dans Python standard)
-# struct - inclus dans Python 2.3+
-
-# Types (inclus dans Python standard)
-# typing - inclus dans Python 3.5+
-
-# Gestion des sockets (inclus dans Python standard)
-# socket - inclus dans Python 2.3+
-
-# Gestion du temps (inclus dans Python standard)
-# time - inclus dans Python 2.3+
-
-# Gestion des fichiers (inclus dans Python standard)
-# os - inclus dans Python 2.3+
-
-# Note: La plupart des fonctionnalités de base sont incluses dans la bibliothèque standard Python.
-# Les dépendances principales sont python-ldap pour LDAP et cryptography pour les opérations cryptographiques avancées.
+pycryptodome>=3.15.0

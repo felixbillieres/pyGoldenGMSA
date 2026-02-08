@@ -1,5 +1,5 @@
 """
-Module pour la gestion des comptes Group Managed Service Account (gMSA).
+Module for managing Group Managed Service Account (gMSA) accounts.
 """
 
 import logging
@@ -13,34 +13,34 @@ logger = logging.getLogger(__name__)
 
 def convert_sid_to_string(sid_bytes: bytes) -> str:
     """
-    Convertit un SID en bytes vers sa représentation string.
-    
+    Converts a SID from bytes to its string representation.
+
     Args:
-        sid_bytes: SID au format bytes
-        
+        sid_bytes: SID in bytes format
+
     Returns:
-        SID au format string (ex: S-1-5-21-...)
+        SID in string format (e.g.: S-1-5-21-...)
     """
     if not sid_bytes or len(sid_bytes) < 8:
         return str(sid_bytes)
     
     try:
-        # Structure du SID:
-        # byte 0: Revision (toujours 1)
-        # byte 1: Nombre de sous-autorités
-        # bytes 2-7: Autorité (6 bytes, big-endian)
-        # bytes 8+: Sous-autorités (4 bytes chacune, little-endian)
+        # SID structure:
+        # byte 0: Revision (always 1)
+        # byte 1: Number of sub-authorities
+        # bytes 2-7: Authority (6 bytes, big-endian)
+        # bytes 8+: Sub-authorities (4 bytes each, little-endian)
         
         revision = sid_bytes[0]
         sub_auth_count = sid_bytes[1]
         
-        # Autorité (6 bytes en big-endian, mais on utilise 8 bytes avec padding)
+        # Authority (6 bytes big-endian, but we use 8 bytes with padding)
         authority = struct.unpack('>Q', b'\x00\x00' + sid_bytes[2:8])[0]
         
-        # Construction du SID
+        # Build the SID
         sid = f'S-{revision}-{authority}'
         
-        # Ajout des sous-autorités
+        # Append sub-authorities
         for i in range(sub_auth_count):
             offset = 8 + (i * 4)
             if offset + 4 <= len(sid_bytes):
@@ -49,16 +49,16 @@ def convert_sid_to_string(sid_bytes: bytes) -> str:
         
         return sid
     except Exception as e:
-        logger.warning(f"Erreur lors de la conversion du SID: {e}")
+        logger.warning(f"Error while converting SID: {e}")
         return str(sid_bytes)
 
 
 class GmsaAccount:
     """
-    Classe représentant un compte Group Managed Service Account (gMSA).
+    Class representing a Group Managed Service Account (gMSA).
     """
     
-    # Attributs LDAP requis pour les gMSA
+    # Required LDAP attributes for gMSA
     GMSA_REQUIRED_LDAP_ATTRIBUTES = [
         "msDS-ManagedPasswordId",
         "sAMAccountName", 
@@ -71,13 +71,13 @@ class GmsaAccount:
     
     def __init__(self, sam_account_name: str, dn: str, sid: str, pwd_id: MsdsManagedPasswordId):
         """
-        Initialise une instance de GmsaAccount.
-        
+        Initializes a GmsaAccount instance.
+
         Args:
-            sam_account_name: Nom du compte SAM
-            dn: Nom distinctif (Distinguished Name)
-            sid: Identifiant de sécurité (SID)
-            pwd_id: Identifiant de mot de passe géré
+            sam_account_name: SAM account name
+            dn: Distinguished Name
+            sid: Security Identifier (SID)
+            pwd_id: Managed password identifier
         """
         self.distinguished_name = dn
         self.managed_password_id = pwd_id
@@ -87,20 +87,20 @@ class GmsaAccount:
     @staticmethod
     def get_gmsa_account_by_sid(domain_fqdn: str, sid: str) -> Optional['GmsaAccount']:
         """
-        Retourne les informations du compte gMSA à partir de son SID.
-        
+        Returns gMSA account information by its SID.
+
         Args:
-            domain_fqdn: FQDN du domaine à rechercher
-            sid: Le SID du gMSA
-            
+            domain_fqdn: FQDN of the domain to search
+            sid: The SID of the gMSA
+
         Returns:
-            Instance de GmsaAccount ou None si non trouvé
+            GmsaAccount instance or None if not found
         """
         if not sid:
-            raise ValueError("Le paramètre sid ne peut pas être None")
+            raise ValueError("The sid parameter cannot be None")
         
         if not domain_fqdn:
-            raise ValueError("Le paramètre domain_fqdn ne peut pas être None")
+            raise ValueError("The domain_fqdn parameter cannot be None")
         
         ldap_filter = f"(&{GmsaAccount.IS_GMSA_ACCOUNT_LDAP_FILTER}(objectsid={sid}))"
         results = LdapUtils.find_in_domain(domain_fqdn, ldap_filter, GmsaAccount.GMSA_REQUIRED_LDAP_ATTRIBUTES)
@@ -113,16 +113,16 @@ class GmsaAccount:
     @staticmethod
     def find_all_gmsa_accounts_in_domain(domain_fqdn: str) -> Iterator['GmsaAccount']:
         """
-        Retourne tous les comptes gMSA dans le domaine.
-        
+        Returns all gMSA accounts in the domain.
+
         Args:
-            domain_fqdn: FQDN du domaine à rechercher
-            
+            domain_fqdn: FQDN of the domain to search
+
         Yields:
-            Instances de GmsaAccount
+            GmsaAccount instances
         """
         if not domain_fqdn:
-            raise ValueError("Le paramètre domain_fqdn ne peut pas être vide")
+            raise ValueError("The domain_fqdn parameter cannot be empty")
         
         results = LdapUtils.find_in_domain(
             domain_fqdn, 
@@ -138,7 +138,7 @@ class GmsaAccount:
             try:
                 gmsa = GmsaAccount._get_gmsa_from_search_result(result)
             except Exception as ex:
-                dn = result.get('distinguishedName', ['Inconnu'])[0]
+                dn = result.get('distinguishedName', ['Unknown'])[0]
                 logger.warning(f"{dn}: {ex}")
             
             if gmsa:
@@ -147,24 +147,24 @@ class GmsaAccount:
     @staticmethod
     def _get_gmsa_from_search_result(search_result: dict) -> 'GmsaAccount':
         """
-        Crée une instance GmsaAccount à partir d'un résultat de recherche LDAP.
-        
+        Creates a GmsaAccount instance from an LDAP search result.
+
         Args:
-            search_result: Résultat de recherche LDAP
-            
+            search_result: LDAP search result
+
         Returns:
-            Instance de GmsaAccount
-            
+            GmsaAccount instance
+
         Raises:
-            KeyError: Si un attribut requis est manquant
+            KeyError: If a required attribute is missing
         """
         if not search_result:
-            raise ValueError("Le paramètre search_result ne peut pas être None")
+            raise ValueError("The search_result parameter cannot be None")
         
-        # Vérifier que tous les attributs requis sont présents
+        # Verify that all required attributes are present
         for attr in GmsaAccount.GMSA_REQUIRED_LDAP_ATTRIBUTES:
             if attr not in search_result:
-                raise KeyError(f"L'attribut {attr} n'a pas été trouvé")
+                raise KeyError(f"Attribute {attr} was not found")
         
         dn = search_result['distinguishedName'][0]
         if isinstance(dn, bytes):
@@ -184,10 +184,10 @@ class GmsaAccount:
     
     def to_string(self) -> str:
         """
-        Retourne une représentation string de l'objet GmsaAccount.
-        
+        Returns a string representation of the GmsaAccount object.
+
         Returns:
-            String formatée contenant les informations du gMSA
+            Formatted string containing gMSA information
         """
         import base64
         
@@ -206,9 +206,9 @@ class GmsaAccount:
         return result
     
     def __str__(self) -> str:
-        """Retourne la représentation string de l'objet."""
+        """Returns the string representation of the object."""
         return self.to_string()
     
     def __repr__(self) -> str:
-        """Retourne la représentation officielle de l'objet."""
+        """Returns the official representation of the object."""
         return f"GmsaAccount(sam_account_name='{self.sam_account_name}', sid='{self.sid}')"
