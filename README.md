@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 ## Usage
 
-![Demo mp4](docs/pyGoldenGMSA_demo.mp4)
+https://github.com/user-attachments/assets/7e48ad7b-21eb-4230-bd3c-11f5ccea4abd
 
 ### Authentication
 
