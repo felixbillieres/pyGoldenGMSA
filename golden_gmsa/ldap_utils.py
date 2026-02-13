@@ -130,7 +130,7 @@ class LdapConnection:
             
             # Authenticate based on method
             if self.nt_hash:
-                # Pass-the-Hash via NTLM
+                # Pass-the-Hash
                 logger.info(f"Authenticating via NTLM with NT hash for user {self.username}...")
                 lm_hash = self.lm_hash or 'aad3b435b51404eeaad3b435b51404ee'
                 self.conn.login(

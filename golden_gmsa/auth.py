@@ -123,7 +123,7 @@ def create_ldap3_connection(domain: str, auth: AuthMethod, dc_ip: Optional[str] 
         
         # Determine authentication method
         if auth.auth_mode == 'ntlm':
-            # Pass-the-Hash with NTLM
+            # Pass-the-Hash
             username = f"{domain}\\{auth.username}"
             conn = Connection(
                 server,
