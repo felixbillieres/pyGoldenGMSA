@@ -8,7 +8,7 @@ The original C# tool relies on Windows' `kdscli.dll` via P/Invoke. This project 
 
 - **gMSA Enumeration** — List all gMSA accounts in a domain with their SID, password ID, and linked KDS Root Key
 - **KDS Root Key Dump** — Extract KDS Root Keys with full Base64 blob for offline use
-- **Offline Password Computation** — Compute gMSA NTLM hashes from a KDS Root Key without touching the DC again
+- **Offline Password Computation** — Compute gMSA NT hashes from a KDS Root Key without touching the DC again
 - **Multiple Authentication Methods** — Password, Pass-the-Hash (PTH), Pass-the-Ticket (PTT), Kerberos
 - **Cross-Platform** — Runs on Linux, macOS, and Windows (no `kdscli.dll` dependency)
 
@@ -72,8 +72,8 @@ python3 main.py -u 'user@domain.local' -p 'Pass' -d domain.local --dc-ip 10.0.0.
 ```
 
 ```
-NTLM Hash (NT only):     1c368c74ef1bcbd4892c95a8d6de0f30
-NTLM Hash (nxc format):  aad3b435b51404eeaad3b435b51404ee:1c368c74ef1bcbd4892c95a8d6de0f30
+NT Hash:                 1c368c74ef1bcbd4892c95a8d6de0f30
+NT Hash (LM:NT):         aad3b435b51404eeaad3b435b51404ee:1c368c74ef1bcbd4892c95a8d6de0f30
 ```
 
 ![Compute gMSA Password (Online)](docs/onlineCompute.png)
@@ -93,7 +93,7 @@ python3 main.py compute \
 
 ### Verify Computed Hash with Pass-the-Hash
 
-The computed NTLM hash can be verified by using it for authentication:
+The computed NT hash can be verified by using it for authentication:
 
 ![Pass-the-Hash Verification](docs/testPassTheHash.png)
 
@@ -104,7 +104,7 @@ The computed NTLM hash can be verified by using it for authentication:
 3. **L1 Key** is derived from L0 with a security descriptor mixed into the context
 4. **L2 Key** is derived from L1 by iterating through the key hierarchy
 5. **gMSA Password** (256 bytes) is derived from L2 using the account's SID as context and `"GMSA PASSWORD\0"` as the KDF label
-6. **NTLM Hash** = MD4 of the 256-byte password blob
+6. **NT Hash** = MD4 of the 256-byte password blob
 
 For a deep technical dive, see the accompanying blog post: [pyGoldenGMSA - Reversing Windows DLLs to Compute gMSA Passwords on Linux](https://felixbillieres.github.io/)
 
