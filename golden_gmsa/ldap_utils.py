@@ -34,7 +34,7 @@ class LdapConnection:
             password: Password
             use_ssl: Use LDAPS (port 636)
             dc_ip: Domain controller IP address (optional)
-            nt_hash: NTLM hash for Pass-the-Hash
+            nt_hash: NT hash for Pass-the-Hash
             lm_hash: LM hash for Pass-the-Hash (optional)
             aes_key: AES key for Kerberos
             ccache: Kerberos ccache file for Pass-the-Ticket
@@ -130,8 +130,8 @@ class LdapConnection:
             
             # Authenticate based on method
             if self.nt_hash:
-                # Pass-the-Hash with NTLM
-                logger.info(f"Authenticating with NTLM hash for user {self.username}...")
+                # Pass-the-Hash via NTLM
+                logger.info(f"Authenticating via NTLM with NT hash for user {self.username}...")
                 lm_hash = self.lm_hash or 'aad3b435b51404eeaad3b435b51404ee'
                 self.conn.login(
                     user=self.username,

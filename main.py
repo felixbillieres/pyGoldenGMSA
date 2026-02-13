@@ -176,20 +176,20 @@ def process_compute(args):
             print(f"SID:\t\t\t{args.sid}")
         
         # The password blob is 256 bytes from the KDF output.
-        # NTLM hash = MD4 of the FULL 256-byte blob.
+        # NT hash = MD4 of the FULL 256-byte blob.
         # Note: gMSADumper uses [:-2] because the msDS-ManagedPassword blob has a null terminator,
         # but raw KDF output does not — so we hash the complete blob.
         if len(pwd_bytes) >= 2:
             from Crypto.Hash import MD4
-            ntlm_hash_obj = MD4.new()
-            ntlm_hash_obj.update(pwd_bytes)
-            nt_hash = ntlm_hash_obj.hexdigest()
+            nt_hash_obj = MD4.new()
+            nt_hash_obj.update(pwd_bytes)
+            nt_hash = nt_hash_obj.hexdigest()
 
-            print(f"NTLM Hash (NT only):\t{nt_hash}")
+            print(f"NT Hash:\t\t{nt_hash}")
 
             # Format for nxc/impacket with empty LM hash (standard format)
             lm_hash_empty = "aad3b435b51404eeaad3b435b51404ee"
-            print(f"NTLM Hash (nxc format):\t{lm_hash_empty}:{nt_hash}")
+            print(f"NT Hash (LM:NT):\t{lm_hash_empty}:{nt_hash}")
             
         
         import base64
@@ -254,7 +254,7 @@ python main.py compute --sid S-1-5-21-2183999363-403723741-3725858571 \\
     # Advanced authentication (PTH/PTT)
     advanced_auth_group = parser.add_argument_group('Advanced Authentication (PTH/PTT)')
     advanced_auth_group.add_argument('--nt-hash', '--nthash', type=str,
-                                    help='NTLM hash for Pass-the-Hash (format: 32 hex chars)')
+                                    help='NT hash for Pass-the-Hash (format: 32 hex chars)')
     advanced_auth_group.add_argument('--lm-hash', '--lmhash', type=str,
                                     help='LM hash for Pass-the-Hash (optional, default: empty)')
     advanced_auth_group.add_argument('--aes-key', '--aeskey', type=str,

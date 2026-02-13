@@ -26,7 +26,7 @@ class AuthMethod:
         Args:
             username: Username
             password: Plaintext password
-            nt_hash: NTLM hash (Pass-the-Hash)
+            nt_hash: NT hash (Pass-the-Hash)
             lm_hash: LM hash (optional, used with NTLM)
             aes_key: Kerberos AES key
             ccache: Kerberos ccache file (Pass-the-Ticket)
@@ -83,7 +83,7 @@ class AuthMethod:
         if self.auth_mode == 'ccache':
             return f"Kerberos (ccache: {self.ccache})"
         elif self.auth_mode == 'ntlm':
-            return f"NTLM (hash: {self.nt_hash[:8]}...)"
+            return f"NTLM (NT hash: {self.nt_hash[:8]}...)"
         elif self.auth_mode == 'kerberos':
             return "Kerberos"
         elif self.auth_mode == 'password':
@@ -132,7 +132,7 @@ def create_ldap3_connection(domain: str, auth: AuthMethod, dc_ip: Optional[str] 
                 authentication=NTLM,
                 auto_bind=True
             )
-            logger.info(f"Authenticated with NTLM hash: {auth.username}")
+            logger.info(f"Authenticated via NTLM with NT hash: {auth.username}")
             
         elif auth.auth_mode == 'ccache' or auth.auth_mode == 'kerberos':
             # Pass-the-Ticket or Kerberos
@@ -214,7 +214,7 @@ def create_impacket_ldap_connection(domain: str, auth: AuthMethod, dc_ip: Option
                 lmhash=auth.lm_hash,
                 nthash=auth.nt_hash
             )
-            logger.info(f"Impacket LDAP: Authenticated with NTLM hash")
+            logger.info(f"Impacket LDAP: Authenticated via NTLM with NT hash")
             
         elif auth.auth_mode in ['kerberos', 'ccache']:
             # Kerberos
