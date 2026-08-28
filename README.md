@@ -1,3 +1,5 @@
+
+
 # pyGoldenGMSA
 
 A pure Python implementation of the [GoldenGMSA](https://www.semperis.com/blog/golden-gmsa-attack/) attack, allowing **offline computation of Group Managed Service Account (gMSA) passwords** from compromised KDS Root Keys on **any platform** (Linux, macOS, Windows).
@@ -33,7 +35,7 @@ https://github.com/user-attachments/assets/7e48ad7b-21eb-4230-bd3c-11f5ccea4abd
 python3 main.py -u 'user@domain.local' -p 'Password1' -d domain.local --dc-ip 10.0.0.1 <command>
 
 # Pass-the-Hash
-python3 main.py -u 'admin' -d domain.local --dc-ip 10.0.0.1 --nt-hash aad3b435b51404ee:31d6cfe0d16ae931 <command>
+python3 main.py -u 'admin' -d domain.local --dc-ip 10.0.0.1 --nt-hash 31d6cfe0d16ae931 <command>
 
 # Kerberos (ccache)
 python3 main.py -u 'admin' -d domain.local --dc-ip 10.0.0.1 --ccache admin.ccache <command>
